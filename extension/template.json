@@ -1,0 +1,99 @@
+{
+  "meta": {
+    "name": "Twitch Giveaway List",
+    "author": "ipl31",
+    "version": "0.1.0",
+    "description": "Export present Twitch users as one login per line for a spin wheel.",
+    "autoRunAction": null,
+    "minimumVersion": "1.0.4"
+  },
+  "data": {
+    "actions": [
+      {
+        "id": "accfeb74-2d5b-5818-b762-adc1b067e5b9",
+        "queue": null,
+        "enabled": true,
+        "excludeFromHistory": false,
+        "excludeFromPending": false,
+        "name": "Giveaway List — Export present Twitch users",
+        "group": "Giveaway List",
+        "alwaysRun": false,
+        "randomAction": false,
+        "concurrent": false,
+        "triggers": [
+          {
+            "commandId": "3246458e-4743-5a87-937d-14f3706bbcfc",
+            "id": "3ebad076-18d4-5b4a-bcf1-3e76cb248e97",
+            "type": 401,
+            "enabled": true,
+            "exclusions": []
+          }
+        ],
+        "subActions": [
+          {
+            "weight": 0.0,
+            "parentId": null,
+            "enabled": true,
+            "id": "18d54dc8-79d7-53da-8462-f7f4f58a0ee1",
+            "index": 0,
+            "type": 22,
+            "present": true,
+            "count": "100000",
+            "includeFrom": false,
+            "groups": []
+          },
+          {
+            "weight": 0.0,
+            "parentId": null,
+            "enabled": true,
+            "id": "042bec22-01b1-5ae7-9037-7ff0dda6842e",
+            "index": 1,
+            "type": 99999,
+            "name": "Export giveaway names",
+            "description": "Broadcaster/mod-only export; one Twitch login per line. Configure persisted globals as described in source.",
+            "references": [],
+            "byteCode": "",
+            "precompile": true,
+            "delayStart": false,
+            "saveResultToVariable": false,
+            "saveToVariable": ""
+          }
+        ],
+        "collapsedGroups": []
+      }
+    ],
+    "queues": [],
+    "commands": [
+      {
+        "permittedUsers": [],
+        "permittedGroups": [
+          "Moderators"
+        ],
+        "id": "3246458e-4743-5a87-937d-14f3706bbcfc",
+        "name": "Giveaway List — !giveawaylist",
+        "enabled": false,
+        "include": true,
+        "mode": 0,
+        "command": "!giveawaylist",
+        "regexExplicitCapture": false,
+        "location": 1,
+        "ignoreBotAccount": true,
+        "ignoreInternal": false,
+        "sources": 1,
+        "persistCounter": false,
+        "persistUserCounter": false,
+        "caseSensitive": false,
+        "globalCooldown": 10,
+        "userCooldown": 0,
+        "group": "Giveaway List",
+        "grantType": 0
+      }
+    ],
+    "websocketServers": [],
+    "websocketClients": [],
+    "timers": []
+  },
+  "version": 23,
+  "exportedFrom": "1.0.4",
+  "minimumVersion": "1.0.4"
+}
