@@ -64,6 +64,9 @@ class PackageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             artifact = build.build(Path(directory))
             first = artifact.read_bytes()
+            envelope = base64.b64decode(first)
+            self.assertEqual(envelope[8:12], b"\0\0\0\0")  # gzip timestamp
+            self.assertEqual(envelope[13], 255)  # canonical OS header
             build.build(Path(directory))
             self.assertEqual(first, artifact.read_bytes())
 

@@ -3,6 +3,7 @@ import argparse
 import base64
 import gzip
 import hashlib
+import io
 import json
 from pathlib import Path
 import re
@@ -19,7 +20,12 @@ def decode(encoded):
 
 def encode(payload):
     raw = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    return base64.b64encode(b"SBAE" + gzip.compress(raw, mtime=0)).decode("ascii")
+    # GzipFile fixes the OS header byte to 255 across Linux and Windows;
+    # gzip.compress(mtime=0) can use a platform-specific OS byte on Python 3.12.
+    compressed = io.BytesIO()
+    with gzip.GzipFile(fileobj=compressed, mode="wb", filename="", mtime=0) as stream:
+        stream.write(raw)
+    return base64.b64encode(b"SBAE" + compressed.getvalue()).decode("ascii")
 
 
 def assemble():
