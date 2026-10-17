@@ -16,7 +16,7 @@ For manual installation: create the command and Command Triggered action,
 add Twitch > User > Add Random Users (Count 100000, Present Only checked),
 then Core > C# Code > Execute C# Code containing this entire file.
 
-Optional persisted global variables (Settings > Global Variables):
+Optional persisted string globals (Global Variable Viewer):
 giveawayListOutputPath: absolute output filename; blank uses the Desktop.
 giveawayListExcludedLogins: comma-separated Twitch logins; blank includes all.
 Parent directories must already exist. No chat message can choose a destination.
