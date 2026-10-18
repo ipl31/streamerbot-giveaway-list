@@ -37,7 +37,8 @@ class PackageTests(unittest.TestCase):
             self.assertEqual(payload["minimumVersion"], "1.0.4")
             self.assertEqual(payload["meta"]["version"], (build.ROOT / "VERSION").read_text().strip())
             self.assertIsNone(payload["meta"]["autoRunAction"])
-            code = payload["data"]["actions"][0]["subActions"][1]
+            code = next(s for s in build.walk_subactions(payload["data"]["actions"][0]["subActions"])
+                        if s["type"] == 99999)
             self.assertEqual(base64.b64decode(code["byteCode"]), (build.ROOT / "src/GiveawayList.cs").read_bytes())
             self.assertEqual(code["references"], [])
             digest, filename = artifact.with_suffix(".sb.sha256").read_text().split()
@@ -61,20 +62,61 @@ class PackageTests(unittest.TestCase):
         trigger = action["triggers"][0]
         self.assertEqual(trigger["type"], 401)
         self.assertEqual(trigger["commandId"], command["id"])
-        self.assertEqual([s["type"] for s in action["subActions"]], [22, 99999])
-        self.assertEqual([s["index"] for s in action["subActions"]], [0, 1])
-        collect = action["subActions"][0]
+        self.assertEqual([s["type"] for s in action["subActions"]], [99900, 99900, 99900])
+        self.assertEqual([s["index"] for s in action["subActions"]], [0, 1, 2])
+        self.assertEqual([s["name"] for s in action["subActions"]], [
+            "Get all present Twitch users", "Save timestamped giveaway file",
+            "Post users to chat (if the list fits)"])
+        self.assertEqual(action["collapsedGroups"], [action["subActions"][0]["id"]])
+        collect = action["subActions"][0]["subActions"][0]
+        self.assertEqual(collect["type"], 22)
         self.assertIs(collect["present"], True)
         self.assertEqual(collect["count"], "100000")  # Native model stores count as a string.
         self.assertIs(collect["includeFrom"], False)
         self.assertEqual(collect["groups"], [])
         identifiers = [action["id"], command["id"], trigger["id"]]
-        identifiers += [s["id"] for s in action["subActions"]]
+        identifiers += [s["id"] for s in build.walk_subactions(action["subActions"])]
         for identifier in identifiers:
             self.assertEqual(str(uuid.UUID(identifier)), identifier)
         self.assertEqual(len(set(identifiers)), len(identifiers))
         for key in ("queues", "timers", "websocketServers", "websocketClients"):
             self.assertEqual(data[key], [])
+
+        def check_children(items, parent=None):
+            for index, child in enumerate(items):
+                self.assertEqual(child["index"], index)
+                self.assertEqual(child["parentId"], parent)
+                self.assertTrue(child["enabled"])
+                if "subActions" in child:
+                    self.assertFalse(child.get("random", False))
+                    check_children(child["subActions"], child["id"])
+        check_children(action["subActions"])
+
+    def test_native_chat_subactions_use_length_condition(self):
+        _, payload = build.assemble()
+        groups = payload["data"]["actions"][0]["subActions"]
+        code = groups[1]["subActions"][0]
+        source = base64.b64decode(code["byteCode"]).decode()
+        self.assertNotIn("CPH.SendMessage(", source)  # Sending must be visible in the UI.
+        self.assertEqual(code["name"], "Save timestamped giveaway file")
+        self.assertFalse(code["saveResultToVariable"])  # Unauthorized calls must stop before chat.
+        condition = groups[2]["subActions"][0]
+        self.assertEqual(condition["type"], 120)
+        self.assertEqual(condition["input"], "%giveawayListFitsChat%")
+        self.assertEqual(condition["operation"], 0)  # Equals.
+        self.assertEqual(condition["value"], "True")
+        self.assertTrue(condition["autoType"])
+        yes, no = condition["subActions"]
+        self.assertEqual([yes["type"], no["type"]], [99901, 99902])
+        for branch in [yes, no]:
+            self.assertEqual(len(branch["subActions"]), 1)
+            message = branch["subActions"][0]
+            self.assertEqual(message["type"], 10)  # Native Twitch Send Message.
+            self.assertTrue(message["useBot"])
+            self.assertTrue(message["fallback"])
+        self.assertEqual(yes["subActions"][0]["text"], "%giveawayListChatMessage%")
+        self.assertEqual(no["subActions"][0]["text"],
+                         "User list is too long for chat. Mods: please ask the streamer to check the text file.")
 
     def test_deterministic_output(self):
         with tempfile.TemporaryDirectory() as directory:

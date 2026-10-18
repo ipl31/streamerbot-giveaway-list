@@ -2,7 +2,7 @@
   "meta": {
     "name": "Twitch Giveaway List",
     "author": "ipl31",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "description": "Post present Twitch users in chat and save timestamped history files for a spin wheel.",
     "autoRunAction": null,
     "minimumVersion": null
@@ -31,35 +31,134 @@
         ],
         "subActions": [
           {
-            "weight": 0.0,
-            "parentId": null,
-            "enabled": true,
-            "id": "18d54dc8-79d7-53da-8462-f7f4f58a0ee1",
+            "id": "91392b30-f47d-5704-a1be-bcb7b15577f2",
+            "type": 99900,
             "index": 0,
-            "type": 22,
-            "present": true,
-            "count": "100000",
-            "includeFrom": false,
-            "groups": []
+            "parentId": null,
+            "weight": 0.0,
+            "enabled": true,
+            "name": "Get all present Twitch users",
+            "color": null,
+            "random": false,
+            "subActions": [
+              {
+                "weight": 0.0,
+                "parentId": "91392b30-f47d-5704-a1be-bcb7b15577f2",
+                "enabled": true,
+                "id": "18d54dc8-79d7-53da-8462-f7f4f58a0ee1",
+                "index": 0,
+                "type": 22,
+                "present": true,
+                "count": "100000",
+                "includeFrom": false,
+                "groups": []
+              }
+            ]
           },
           {
-            "weight": 0.0,
-            "parentId": null,
-            "enabled": true,
-            "id": "042bec22-01b1-5ae7-9037-7ff0dda6842e",
+            "id": "39acdd95-9eaa-5fd2-989f-9f9c2539416d",
+            "type": 99900,
             "index": 1,
-            "type": 99999,
-            "name": "Export giveaway names",
-            "description": "Broadcaster/mod-only chat list plus timestamped files. Oversized lists post a generic file-check notice. Configure persisted globals as described in source.",
-            "references": [],
-            "byteCode": "",
-            "precompile": true,
-            "delayStart": false,
-            "saveResultToVariable": false,
-            "saveToVariable": ""
+            "parentId": null,
+            "weight": 0.0,
+            "enabled": true,
+            "name": "Save timestamped giveaway file",
+            "color": null,
+            "random": false,
+            "subActions": [
+              {
+                "weight": 0.0,
+                "parentId": "39acdd95-9eaa-5fd2-989f-9f9c2539416d",
+                "enabled": true,
+                "id": "042bec22-01b1-5ae7-9037-7ff0dda6842e",
+                "index": 0,
+                "type": 99999,
+                "name": "Save timestamped giveaway file",
+                "description": "Save full history file and prepare chat text/length flag. The separate native Twitch Send Message sub-actions post to chat.",
+                "references": [],
+                "byteCode": "",
+                "precompile": true,
+                "delayStart": false,
+                "saveResultToVariable": false,
+                "saveToVariable": ""
+              }
+            ]
+          },
+          {
+            "id": "761d364e-71af-5247-a524-b141a27ac42a",
+            "type": 99900,
+            "index": 2,
+            "parentId": null,
+            "weight": 0.0,
+            "enabled": true,
+            "name": "Post users to chat (if the list fits)",
+            "color": null,
+            "random": false,
+            "subActions": [
+              {
+                "id": "d9715c15-fa27-5838-b1c9-71dfeb8e810f",
+                "type": 120,
+                "index": 0,
+                "parentId": "761d364e-71af-5247-a524-b141a27ac42a",
+                "weight": 0.0,
+                "enabled": true,
+                "input": "%giveawayListFitsChat%",
+                "operation": 0,
+                "value": "True",
+                "autoType": true,
+                "subActions": [
+                  {
+                    "id": "9aa3d009-bea1-5c84-83e7-c354d1e2bd31",
+                    "type": 99901,
+                    "index": 0,
+                    "parentId": "d9715c15-fa27-5838-b1c9-71dfeb8e810f",
+                    "weight": 0.0,
+                    "enabled": true,
+                    "random": false,
+                    "subActions": [
+                      {
+                        "id": "d25bf30c-e48c-5cdf-b1e9-a626f9d1188c",
+                        "type": 10,
+                        "index": 0,
+                        "parentId": "9aa3d009-bea1-5c84-83e7-c354d1e2bd31",
+                        "weight": 0.0,
+                        "enabled": true,
+                        "text": "%giveawayListChatMessage%",
+                        "useBot": true,
+                        "fallback": true
+                      }
+                    ]
+                  },
+                  {
+                    "id": "7f1b9f47-7694-5a19-bb8a-7af53e4c914c",
+                    "type": 99902,
+                    "index": 1,
+                    "parentId": "d9715c15-fa27-5838-b1c9-71dfeb8e810f",
+                    "weight": 0.0,
+                    "enabled": true,
+                    "random": false,
+                    "subActions": [
+                      {
+                        "id": "f2eb8a04-133e-5e1c-baf6-1381f176ce96",
+                        "type": 10,
+                        "index": 0,
+                        "parentId": "7f1b9f47-7694-5a19-bb8a-7af53e4c914c",
+                        "weight": 0.0,
+                        "enabled": true,
+                        "text": "User list is too long for chat. Mods: please ask the streamer to check the text file.",
+                        "useBot": true,
+                        "fallback": true
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
           }
         ],
-        "collapsedGroups": []
+        "collapsedGroups": [
+          "91392b30-f47d-5704-a1be-bcb7b15577f2"
+        ]
       }
     ],
     "queues": [],

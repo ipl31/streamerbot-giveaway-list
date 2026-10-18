@@ -44,6 +44,27 @@ contains actual commands with `permittedGroups: ["Moderators"]`, `grantType: 0`,
 and empty `permittedUsers`. The template retains those permission values while
 using the newer scalar `sources: 1` representation from the 1.0.4 example.
 
+## Visible groups and native chat branches (v0.2.1)
+
+The official 1.0.4 chatbot fixture's `!uptime` action provides a native group
+example: `type: 99900`, `name`, `color`, `random: false` and nested `subActions`.
+Each child carries its group's `parentId` and an index within that group. Its
+`collapsedGroups` array contains the group UUID. The extension uses that same
+structure to show a collapsed **Get all present Twitch users** collection step.
+
+The fixture also contains native If/Else trees (`type: 120`) with true/false
+folders (`99901`/`99902`). Native Twitch Send Message uses `type: 10`, `text`,
+`useBot` and `fallback`. The post group uses these native objects to route
+`%giveawayListFitsChat%` Equals `True` (operation 0, auto-typed) to the prepared
+list, and otherwise to the generic moderator notice. The official starter pack
+provides Equals/operation-0 examples; the 1.0.4 application logic model was also
+inspected to confirm input/value parsing and operation 0 equality.
+
+Only the native message leaves send to Twitch. C# prepares the text and length
+flag and writes the file. The builder recursively embeds source inside groups;
+tests verify parent IDs, indexes, collapsed state, enabled branches and messages,
+and that the save source contains no chat-send call.
+
 ## Add Random Users
 
 The required fields were checked against the official Streamer.bot **1.0.4**

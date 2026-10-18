@@ -15,9 +15,15 @@ The latest presence refresh includes lurkers connected to chat, not anonymous
 video viewers. Connected bot accounts and the broadcaster are included unless
 excluded in configuration. The collection sub-action is capped at 100000.
 
-For manual installation: create the command and Command Triggered action,
-add Twitch > User > Add Random Users (Count 100000, Present Only checked),
-then Core > C# Code > Execute C# Code containing this entire file.
+The imported action has three labelled groups: Get all present Twitch users,
+Save timestamped giveaway file, and Post users to chat. The collection group
+is collapsed; its built-in collector requests all available present users.
+For manual installation: create the command and Command Triggered action;
+add Twitch > User > Add Random Users (Count 100000, Present Only checked);
+then Execute C# Code containing this file, named Save timestamped giveaway file;
+then an If/Else on %giveawayListFitsChat%, with a Twitch Send Message sub-action
+in each branch (the prepared message when true, the generic notice when false).
+The save step prepares a message; only the final post step sends it to Twitch.
 
 Optional persisted string globals (Global Variable Viewer):
 giveawayListOutputPath: absolute base filename; a timestamp/id is added each run.
@@ -43,21 +49,16 @@ public partial class CPHInline
     private const int MaximumUsers = 100000;
     private const int ChatCharacterLimit = 500;
     private const string ChatPrefix = "Giveaway users: ";
-    private const string TooLongMessage = "User list is too long for chat. Mods: please ask the streamer to check the text file.";
+    private const string ChatMessageArgument = "giveawayListChatMessage";
+    private const string ExportSucceededArgument = "giveawayListExportSucceeded";
+    private const string FitsChatArgument = "giveawayListFitsChat";
 
     public bool Execute()
     {
-        string source, userId, broadcasterId;
-        bool isModerator;
-        bool broadcaster = CPH.TryGetArg("userId", out userId)
-            && CPH.TryGetArg("broadcastUserId", out broadcasterId)
-            && !string.IsNullOrWhiteSpace(userId)
-            && string.Equals(userId, broadcasterId, StringComparison.Ordinal);
-        bool moderator = CPH.TryGetArg("isModerator", out isModerator) && isModerator;
-
-        if (!CPH.TryGetArg("commandSource", out source)
-            || !string.Equals(source, "twitch", StringComparison.OrdinalIgnoreCase)
-            || !(broadcaster || moderator))
+        CPH.SetArgument(ChatMessageArgument, "");
+        CPH.SetArgument(ExportSucceededArgument, false);
+        CPH.SetArgument(FitsChatArgument, false);
+        if (!IsAuthorized())
         {
             CPH.LogWarn("Giveaway List: only a Twitch broadcaster or moderator can export.");
             return false;
@@ -91,10 +92,29 @@ public partial class CPHInline
         {
             CPH.LogWarn("Giveaway List: no eligible Twitch users found. "
                 + "Previous export left unchanged; do not use it for this giveaway.");
-            SendChat("No eligible users found. Mods: please ask the streamer to check the chat presence settings.");
-            return false;
+            return PrepareChat("No eligible users found. Mods: please ask the streamer to check the chat presence settings.", false);
         }
 
+        return SaveAndPrepareChat(names);
+    }
+
+    private bool IsAuthorized()
+    {
+        string source, userId, broadcasterId;
+        bool isModerator;
+        bool broadcaster = CPH.TryGetArg("userId", out userId)
+            && CPH.TryGetArg("broadcastUserId", out broadcasterId)
+            && !string.IsNullOrWhiteSpace(userId)
+            && string.Equals(userId, broadcasterId, StringComparison.Ordinal);
+        bool moderator = CPH.TryGetArg("isModerator", out isModerator) && isModerator;
+
+        return CPH.TryGetArg("commandSource", out source)
+            && string.Equals(source, "twitch", StringComparison.OrdinalIgnoreCase)
+            && (broadcaster || moderator);
+    }
+
+    private bool SaveAndPrepareChat(List<string> names)
+    {
         string temporaryPath = null;
         try
         {
@@ -125,8 +145,7 @@ public partial class CPHInline
         {
             CPH.LogWarn("Giveaway List: export failed; previous export left unchanged. "
                 + "Do not use an older file for this giveaway. " + exception.Message);
-            SendChat("User list could not be saved. Mods: please ask the streamer to check Streamer.bot's log.");
-            return false;
+            return PrepareChat("User list could not be saved. Mods: please ask the streamer to check Streamer.bot's log.", false);
         }
         finally
         {
@@ -139,22 +158,17 @@ public partial class CPHInline
         }
 
         string message = ChatPrefix + string.Join(", ", names);
-        return SendChat(message.Length <= ChatCharacterLimit ? message : TooLongMessage);
+        return PrepareChat(message, true);
     }
 
-    private bool SendChat(string message)
+    private bool PrepareChat(string message, bool exportSucceeded)
     {
-        try
-        {
-            CPH.SendMessage(message, true, true);
-            return true;
-        }
-        catch (Exception exception)
-        {
-            // A chat failure must not remove an already saved history file.
-            CPH.LogWarn("Giveaway List: chat send failed. Any saved export is retained. " + exception.Message);
-            return false;
-        }
+        CPH.SetArgument(ChatMessageArgument, message);
+        CPH.SetArgument(ExportSucceededArgument, exportSucceeded);
+        CPH.SetArgument(FitsChatArgument, message.Length <= ChatCharacterLimit);
+        // Continue to the visible native If/Else and Twitch Send Message steps.
+        // Error statuses are short enough for the message branch, without names.
+        return true;
     }
 
     private static bool IsLogin(string name)

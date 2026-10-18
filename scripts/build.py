@@ -28,6 +28,12 @@ def encode(payload):
     return base64.b64encode(b"SBAE" + compressed.getvalue()).decode("ascii")
 
 
+def walk_subactions(items):
+    for item in items:
+        yield item
+        yield from walk_subactions(item.get("subActions", []))
+
+
 def assemble():
     version = (ROOT / "VERSION").read_text().strip()
     if not re.fullmatch(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?", version):
@@ -36,7 +42,7 @@ def assemble():
     payload["meta"]["version"] = version
     source = (ROOT / "src/GiveawayList.cs").read_bytes()
     for action in payload["data"]["actions"]:
-        for subaction in action["subActions"]:
+        for subaction in walk_subactions(action["subActions"]):
             if subaction["type"] == 99999:
                 subaction["byteCode"] = base64.b64encode(source).decode("ascii")
     return version, payload

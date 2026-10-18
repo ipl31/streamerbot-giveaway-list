@@ -5,8 +5,14 @@ authenticate to Twitch. Record the application version, release tag and results
 here when this test is performed. Use a disposable/test Streamer.bot profile.
 
 1. Import the release `.sb`. Confirm one command, one action, and one matching
-   Command Triggered trigger. Inspect Add Random Users: Count 100000,
-   Present Only checked, no group restriction. Confirm C# compiles.
+   Command Triggered trigger. Confirm the three top-level groups read Get all
+   present Twitch users, Save timestamped giveaway file, and Post users to chat
+   (if the list fits). The first group should be collapsed. Expand it to inspect
+   the internal collector: Count 100000, Present Only checked, no group restriction.
+   Confirm C# compiles. Expand the final group and confirm its native If/Else tests
+   `%giveawayListFitsChat%` Equals `True`, with a Twitch Send Message in each branch.
+   The true branch sends `%giveawayListChatMessage%`; the false branch sends the
+   generic moderator file-check notice. Both branches and messages must be enabled.
 2. Confirm command permissions allow Moderators and the imported command is
    disabled until enabled. Enable it.
 3. Connect the broadcaster account and enable Twitch Present Viewers Live Update
@@ -33,7 +39,7 @@ here when this test is performed. Use a disposable/test Streamer.bot profile.
     without any filename/path. Confirm the complete list is in the new history file.
 11. If a separate bot account is connected, confirm chat messages use that account.
     Without it, confirm broadcaster fallback. Confirm saved history survives any
-    chat delivery failure; inspect the log because SendMessage has no delivery result.
+    chat delivery failure; inspect Streamer.bot's native message-action logs.
 
 Evidence to record: Streamer.bot version, OS, tag, import result, compilation
 result, silent-account inclusion, roles checked, output count, and date.

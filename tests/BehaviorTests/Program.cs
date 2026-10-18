@@ -30,6 +30,7 @@ public class FakeCph
     }
     public void LogWarn(string message) { Logs.Add(message); }
     public void LogInfo(string message) { Logs.Add(message); }
+    public void SetArgument(string name, object value) { Arguments[name] = value; }
     public void SendMessage(string message, bool useBot, bool fallback)
     {
         if (BeforeSend != null) BeforeSend();
@@ -62,7 +63,24 @@ public static class Program
         cph.Arguments["randomUserName" + index] = name;
         if (platform != null) cph.Arguments["randomUserType" + index] = platform;
     }
-    private static bool Run(FakeCph cph) { return new CPHInline { CPH = cph }.Execute(); }
+    private static bool Run(FakeCph cph)
+    {
+        var code = new CPHInline { CPH = cph };
+        if (!code.Execute()) return false;
+        // Model the native If/Else + Twitch Send Message leaves. Package tests
+        // separately verify the actual exported branches, operands and text.
+        bool fits, exported;
+        string message;
+        if (!cph.TryGetArg("giveawayListFitsChat", out fits)
+            || !cph.TryGetArg("giveawayListChatMessage", out message)
+            || !cph.TryGetArg("giveawayListExportSucceeded", out exported))
+            throw new Exception("Missing prepared chat arguments");
+        try { cph.SendMessage(fits ? message : LongMessage, true, true); }
+        catch (IOException) { return false; }
+        // Return export status to assertions; native message delivery is tested
+        // only through this stub, not through a live Streamer.bot connection.
+        return exported;
+    }
     private static string[] Exports(string directory) { return Directory.GetFiles(directory, "names-*.txt"); }
     private static void BoundaryUsers(FakeCph cph, int finalLength)
     {
@@ -102,6 +120,15 @@ public static class Program
             Check(cph.Messages.Count == 1 && cph.Messages[0] == "Giveaway users: alpha, ordinary_lurker, zebra",
                 "short list posted once with comma separators");
 
+            var saveOnly = Setup(Path.Combine(directory, "save-only.txt"));
+            User(saveOnly, 0, "prepared_viewer");
+            Check(new CPHInline { CPH = saveOnly }.Execute(), "file preparation succeeds separately");
+            Check(saveOnly.Messages.Count == 0 && File.Exists(LatestExport(saveOnly)),
+                "save step writes a file without sending any chat message");
+            Check((bool)saveOnly.Arguments["giveawayListFitsChat"]
+                && (string)saveOnly.Arguments["giveawayListChatMessage"] == "Giveaway users: prepared_viewer",
+                "save step exposes short message and fits flag for visible native chat step");
+
             cph = Setup(path); cph.Arguments["userId"] = "456";
             cph.Arguments["isModerator"] = true; User(cph, 0, "replacement");
             Check(Run(cph), "moderator can export");
@@ -136,19 +163,19 @@ public static class Program
             cph = Setup(path); BoundaryUsers(cph, 16);
             Check(Run(cph), "500-character list succeeds");
             Check(cph.Messages.Count == 1 && cph.Messages[0].Length == 500, "exactly 500 including prefix and separators is sent");
+            Check((bool)cph.Arguments["giveawayListFitsChat"], "500 characters selects native true branch");
             Check(File.ReadAllLines(LatestExport(cph)).Length == 19, "boundary list saved one name per line");
             cph = Setup(path); BoundaryUsers(cph, 17);
             Check(Run(cph), "501-character list still saves successfully");
             Check(cph.Messages.Count == 1 && cph.Messages[0] == LongMessage, "over-limit list posts only moderator fallback");
+            Check(!(bool)cph.Arguments["giveawayListFitsChat"], "501 characters selects native else branch");
             Check(!cph.Messages[0].Contains("names-") && !cph.Messages[0].Contains(directory)
                 && !cph.Messages[0].Contains("u00"), "fallback exposes no filename, path or usernames");
             Check(File.ReadAllLines(LatestExport(cph)).Length == 19, "full over-limit list saved");
 
             cph = Setup(path); User(cph, 0, "chat_failure"); cph.FailChat = true;
-            Check(!Run(cph), "chat exception handled");
+            Check(!Run(cph), "simulated native chat failure reported");
             Check(File.Exists(LatestExport(cph)), "saved history survives chat failure");
-            Check(cph.Logs.Exists(x => x.Contains("chat send failed"))
-                && !cph.Logs.Exists(x => x.Contains("export failed")), "chat failure distinguished from file failure");
             Check(Directory.GetFiles(directory, "*.tmp").Length == 0, "temporary files cleaned up");
             Console.WriteLine("Passed " + checks + " behavior checks.");
         }

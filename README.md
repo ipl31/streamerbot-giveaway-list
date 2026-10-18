@@ -31,6 +31,21 @@ Follow [the smoke test](docs/SMOKE-TEST.md) before using it for a real giveaway.
 
 ## Output and configuration
 
+The imported action shows three groups:
+
+1. **Get all present Twitch users** — collapsed to keep the application's internal
+   collector details out of the main list. Expanding it still shows Streamer.bot's
+   fixed **Add Random Users** label; the count requests all available present users.
+2. **Save timestamped giveaway file** — writes history and prepares the message.
+3. **Post users to chat (if the list fits)** — expand this to see a native If/Else:
+   **True** runs a Twitch Send Message sub-action containing the names; **False**
+   runs a separate Twitch Send Message containing only the file-check notice.
+
+Chat output is now performed by those visible native Twitch sub-actions, rather
+than a C# chat call hidden inside the file-save step. The condition reads
+`%giveawayListFitsChat%` and compares it with `True`. The save step sets this flag
+using the complete prepared message length, including prefix and separators.
+
 ```text
 alice
 bob
@@ -50,9 +65,10 @@ message is **500 characters or fewer**, it is sent as one message. If it exceeds
 The full list is still saved in the history file. No filename or filesystem path
 is posted in chat, and long lists are not truncated or split across messages.
 Messages use the connected bot account, falling back to the broadcaster account.
-An empty list or failed file write posts a generic status without usernames or
-paths and creates no new export. A chat failure is logged and retains any saved
-history file. **Do not use an older export for a new giveaway.**
+An empty list or failed file write prepares a short generic status without
+usernames or paths; the true branch posts that status and no new file is created.
+Native chat delivery failures do not remove saved history; check Streamer.bot's
+log. **Do not use an older export for a new giveaway.**
 
 Optional **persisted string global variables**, editable in Streamer.bot's global
 variable viewer (or set with Core → Globals → Global Set):
@@ -70,7 +86,7 @@ available, Streamer.bot returns the available users; names are sorted afterward.
 Edits to command permissions alone cannot grant ordinary viewers export access:
 the C# role check independently requires a broadcaster or moderator.
 
-When upgrading to v0.2.0, re-import and overwrite the existing action/command,
+When upgrading to v0.2.1, re-import and overwrite the existing action/command,
 then recheck that the command is enabled. An existing custom output path remains
 the base for new timestamped filenames; no configuration migration is required.
 
@@ -96,8 +112,8 @@ and upload build artifacts. To publish a release, update `VERSION`, commit
 the change, and push a matching tag:
 
 ```sh
-git tag v0.2.0
-git push origin main v0.2.0
+git tag v0.2.1
+git push origin main v0.2.1
 ```
 
 The release job runs only after both operating systems pass, validates the tag,
