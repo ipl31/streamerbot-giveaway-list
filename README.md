@@ -23,7 +23,8 @@ and deduplicated; this extension does not spin the wheel or choose a winner.
    Copy its contents into your wheel.
 
 The package targets Streamer.bot **1.0.4 or newer** and uses export format 23.
-**Preview:** automated package and behavior checks are provided, but native
+Use **v0.1.1 or newer**: v0.1.0 incorrectly rejected version 1.0.4 due to an
+optional metadata version restriction. Automated package and behavior checks are provided, but native
 Streamer.bot import and live Twitch presence have not yet been smoke-tested.
 Follow [the smoke test](docs/SMOKE-TEST.md) before using it for a real giveaway.
 
@@ -78,13 +79,13 @@ and upload build artifacts. To publish a preview release, update `VERSION`, comm
 the change, and push a matching tag:
 
 ```sh
-git tag v0.1.0
-git push origin main v0.1.0
+git tag v0.1.1
+git push origin main v0.1.1
 ```
 
 The release job runs only after both operating systems pass, validates the tag,
-and attaches the `.sb` file and checksum to a GitHub prerelease. Releases remain
-previews until native smoke testing has been recorded. See
+and attaches the `.sb` file and checksum to a GitHub release. Native smoke testing
+remains outstanding and is documented in the release notes. See
 [Astra's implementation plan](docs/PLAN.md) and [format evidence](docs/FORMAT.md).
 
 ## References

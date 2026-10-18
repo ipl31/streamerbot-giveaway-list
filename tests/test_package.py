@@ -13,6 +13,22 @@ import build
 
 
 class PackageTests(unittest.TestCase):
+    def test_104_passes_both_native_import_version_gates(self):
+        # Streamer.bot 1.0.4 importer: root minimum is inclusive (>=), but
+        # optional meta.minimumVersion is exclusive (>). Setting both to
+        # 1.0.4 caused v0.1.0 to reject precisely the version it advertised.
+        _, payload = build.assemble()
+        self.assertIsNone(payload["meta"]["minimumVersion"])
+        minimum = tuple(map(int, payload["minimumVersion"].split(".")))
+        optional = payload["meta"]["minimumVersion"]
+        def accepts(version):
+            current = tuple(map(int, version.split(".")))
+            return current >= minimum and (
+                optional is None or current > tuple(map(int, optional.split("."))))
+        self.assertFalse(accepts("1.0.3"))
+        self.assertTrue(accepts("1.0.4"))
+        self.assertTrue(accepts("1.0.5"))
+
     def test_envelope_and_embedded_source(self):
         with tempfile.TemporaryDirectory() as directory:
             artifact = build.build(Path(directory))

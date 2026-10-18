@@ -4,6 +4,21 @@ The builder generates an import file; it does not claim to export from a running
 Streamer.bot installation. `exportedFrom: 1.0.4` identifies the verified schema
 baseline. Minimum supported version is set to 1.0.4.
 
+## Minimum-version boundary fix (v0.1.1)
+
+The 1.0.4 native importer parses two separate minimum-version fields. Inspection
+of the official executable confirms that the root `minimumVersion` is checked
+with `ComparePrecedence(current, minimum) >= 0`, while the optional
+`meta.minimumVersion` is checked with `ComparePrecedence(current, optional) > 0`
+when supplied. The optional field defaults to no restriction when null.
+
+v0.1.0 set both fields to `1.0.4`, causing the optional gate to reject equal
+versions. v0.1.1 retains root `minimumVersion: "1.0.4"` and sets
+`meta.minimumVersion: null`, as in the official example. The regression test checks
+that the generated package accepts the equal-version boundary under those native
+predicates and continues to reject earlier versions. This is based on inspection
+of the actual predicates, not a completed GUI import test.
+
 ## Envelope and action structure
 
 Examined the official chatbot example at documentation commit

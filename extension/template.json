@@ -2,10 +2,10 @@
   "meta": {
     "name": "Twitch Giveaway List",
     "author": "ipl31",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Export present Twitch users as one login per line for a spin wheel.",
     "autoRunAction": null,
-    "minimumVersion": "1.0.4"
+    "minimumVersion": null
   },
   "data": {
     "actions": [
