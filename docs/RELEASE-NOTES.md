@@ -1,27 +1,20 @@
-Make collection and chat posting explicit in the Streamer.bot action list.
+Plain usernames in chat, with a global setting for space or comma delimiters.
 
-The action now has three clearly labelled groups:
+- Default: `alice bob quiet_lurker`.
+- Set persisted **string** global `giveawayListChatDelimiter` to `comma` for
+  `alice,bob,quiet_lurker`; set it to `space` to switch back.
+- No `Giveaway users:` prefix, commands, bullets, or trailing separators.
+- Changes apply on the next command. A missing global is initialized to `space`
+  on the first run with users. Blank/invalid values fall back to spaces.
+- Timestamped text files remain one username per line in both modes, preserving
+  history. The chat delimiter does not change the file format.
+- The complete list, including delimiters, must fit Twitch's 500-character limit.
+  Oversized lists still post only the moderator file-check notice, with no filename.
 
-1. **Get all present Twitch users** — collapsed by default. It wraps Streamer.bot's
-   built-in collector, requesting all available present users up to 100,000.
-   Expanding it still reveals the application's fixed "Add Random Users" label.
-2. **Save timestamped giveaway file** — saves the full list and prepares chat text
-   plus a flag indicating whether it fits Twitch's 500-character message limit.
-3. **Post users to chat (if the list fits)** — a visible native If/Else with a
-   Twitch Send Message sub-action in each branch:
-   - **True:** post the full prepared user list.
-   - **False:** post only "User list is too long for chat. Mods: please ask the
-     streamer to check the text file."
+Download the `.sb` and re-import over the existing action/command. Ensure the
+command is enabled. The visible native Twitch Send Message branches remain.
+Streamer.bot 1.0.4 or newer is supported; Live Update must be enabled for lurkers.
 
-The C# save step no longer sends messages itself. Timestamped file history,
-moderator/broadcaster permissions, exclusions and the 1.0.4 minimum are retained.
-No filename or path is posted in chat. Short generic error statuses use the
-message branch when there is no list to post.
-
-Download the `.sb` asset and re-import it over the existing action and command.
-Check that the command is enabled, and expand the final group to see both native
-Twitch message sub-actions. Keep Twitch Present Viewers Live Update enabled.
-
-Automated checks cover nested import structure, enabled branches, linked parents,
-500/501-character routing, no chat calls in the file-save code, history and error
-statuses. Native Streamer.bot import/live Twitch chat testing remains outstanding.
+Automated checks cover both delimiters, default/global initialization, invalid
+settings, plain output, unchanged file format, and 500/501-character routing.
+Native Streamer.bot import/live Twitch chat testing remains outstanding.

@@ -31,6 +31,7 @@ public class FakeCph
     public void LogWarn(string message) { Logs.Add(message); }
     public void LogInfo(string message) { Logs.Add(message); }
     public void SetArgument(string name, object value) { Arguments[name] = value; }
+    public void SetGlobalVar(string name, object value, bool persisted) { Globals[name] = value; }
     public void SendMessage(string message, bool useBot, bool fallback)
     {
         if (BeforeSend != null) BeforeSend();
@@ -82,10 +83,16 @@ public static class Program
         return exported;
     }
     private static string[] Exports(string directory) { return Directory.GetFiles(directory, "names-*.txt"); }
-    private static void BoundaryUsers(FakeCph cph, int finalLength)
+    private static void BoundaryUsers(FakeCph cph, int messageLength)
     {
-        for (int i = 0; i < 18; i++) User(cph, i, "u" + i.ToString("D2") + new string('a', 21));
-        User(cph, 18, "z" + new string('b', finalLength - 1));
+        int index = 0;
+        while (messageLength > 25)
+        {
+            User(cph, index, "u" + index.ToString("D3") + new string('a', 20));
+            index++;
+            messageLength -= 25; // 24-character login plus one separator.
+        }
+        User(cph, index, "z" + new string('b', messageLength - 1));
     }
     private static string LatestExport(FakeCph cph)
     {
@@ -117,8 +124,9 @@ public static class Program
             Check(File.ReadAllText(path) == "legacy export", "legacy base filename untouched");
             byte[] bytes = File.ReadAllBytes(first);
             Check(!(bytes.Length >= 3 && bytes[0] == 239 && bytes[1] == 187 && bytes[2] == 191), "no UTF-8 BOM");
-            Check(cph.Messages.Count == 1 && cph.Messages[0] == "Giveaway users: alpha, ordinary_lurker, zebra",
-                "short list posted once with comma separators");
+            Check(cph.Messages.Count == 1 && cph.Messages[0] == "alpha ordinary_lurker zebra",
+                "default chat contains only space-separated usernames");
+            Check((string)cph.Globals["giveawayListChatDelimiter"] == "space", "missing delimiter global initialized to space");
 
             var saveOnly = Setup(Path.Combine(directory, "save-only.txt"));
             User(saveOnly, 0, "prepared_viewer");
@@ -126,7 +134,7 @@ public static class Program
             Check(saveOnly.Messages.Count == 0 && File.Exists(LatestExport(saveOnly)),
                 "save step writes a file without sending any chat message");
             Check((bool)saveOnly.Arguments["giveawayListFitsChat"]
-                && (string)saveOnly.Arguments["giveawayListChatMessage"] == "Giveaway users: prepared_viewer",
+                && (string)saveOnly.Arguments["giveawayListChatMessage"] == "prepared_viewer",
                 "save step exposes short message and fits flag for visible native chat step");
 
             cph = Setup(path); cph.Arguments["userId"] = "456";
@@ -160,18 +168,34 @@ public static class Program
             cph = Setup("relative.txt"); User(cph, 0, "viewer");
             Check(!Run(cph), "relative destination rejected");
 
-            cph = Setup(path); BoundaryUsers(cph, 16);
-            Check(Run(cph), "500-character list succeeds");
-            Check(cph.Messages.Count == 1 && cph.Messages[0].Length == 500, "exactly 500 including prefix and separators is sent");
-            Check((bool)cph.Arguments["giveawayListFitsChat"], "500 characters selects native true branch");
-            Check(File.ReadAllLines(LatestExport(cph)).Length == 19, "boundary list saved one name per line");
-            cph = Setup(path); BoundaryUsers(cph, 17);
-            Check(Run(cph), "501-character list still saves successfully");
-            Check(cph.Messages.Count == 1 && cph.Messages[0] == LongMessage, "over-limit list posts only moderator fallback");
-            Check(!(bool)cph.Arguments["giveawayListFitsChat"], "501 characters selects native else branch");
-            Check(!cph.Messages[0].Contains("names-") && !cph.Messages[0].Contains(directory)
-                && !cph.Messages[0].Contains("u00"), "fallback exposes no filename, path or usernames");
-            Check(File.ReadAllLines(LatestExport(cph)).Length == 19, "full over-limit list saved");
+            foreach (string setting in new string[] { "space", "comma", " COMMA ", ",", "", "invalid", "\n" })
+            {
+                cph = Setup(Path.Combine(directory, "format.txt"));
+                cph.Globals["giveawayListChatDelimiter"] = setting;
+                User(cph, 0, "bob"); User(cph, 1, "alice");
+                bool comma = setting.Trim().Equals("comma", StringComparison.OrdinalIgnoreCase) || setting == ",";
+                Check(Run(cph), "delimiter setting exports: " + setting);
+                Check(cph.Messages.Count == 1 && cph.Messages[0] == (comma ? "alice,bob" : "alice bob"),
+                    "configured delimiter with no prefix, commands or trailing separator");
+                Check(string.Join("|", File.ReadAllLines(LatestExport(cph))) == "alice|bob",
+                    "history stays one username per line for either chat delimiter");
+            }
+
+            foreach (string setting in new string[] { "space", "comma" })
+            {
+                cph = Setup(path); cph.Globals["giveawayListChatDelimiter"] = setting; BoundaryUsers(cph, 500);
+                Check(Run(cph), "500-character list succeeds: " + setting);
+                Check(cph.Messages.Count == 1 && cph.Messages[0].Length == 500, "exactly 500 including separators is sent");
+                Check((bool)cph.Arguments["giveawayListFitsChat"], "500 characters selects native true branch");
+                Check(File.ReadAllLines(LatestExport(cph)).Length == 20, "boundary list saved one name per line");
+                cph = Setup(path); cph.Globals["giveawayListChatDelimiter"] = setting; BoundaryUsers(cph, 501);
+                Check(Run(cph), "501-character list still saves: " + setting);
+                Check(cph.Messages.Count == 1 && cph.Messages[0] == LongMessage, "over-limit list posts only moderator fallback");
+                Check(!(bool)cph.Arguments["giveawayListFitsChat"], "501 characters selects native else branch");
+                Check(!cph.Messages[0].Contains("names-") && !cph.Messages[0].Contains(directory)
+                    && !cph.Messages[0].Contains("u00"), "fallback exposes no filename, path or usernames");
+                Check(File.ReadAllLines(LatestExport(cph)).Length == 21, "full over-limit list saved");
+            }
 
             cph = Setup(path); User(cph, 0, "chat_failure"); cph.FailChat = true;
             Check(!Run(cph), "simulated native chat failure reported");

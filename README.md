@@ -44,7 +44,7 @@ The imported action shows three groups:
 Chat output is now performed by those visible native Twitch sub-actions, rather
 than a C# chat call hidden inside the file-save step. The condition reads
 `%giveawayListFitsChat%` and compares it with `True`. The save step sets this flag
-using the complete prepared message length, including prefix and separators.
+using the complete prepared message length, including separators.
 
 ```text
 alice
@@ -56,8 +56,22 @@ Every successful export creates a new file with a UTC timestamp and unique ID;
 existing history and older fixed-name exports are never overwritten. The file
 is saved before posting to chat. Check Streamer.bot's log for its count and path.
 
-Chat uses comma-separated names, prefixed with `Giveaway users: `. If the entire
-message is **500 characters or fewer**, it is sent as one message. If it exceeds
+Chat contains only usernames, separated by spaces by default. To switch to
+comma-delimited output, set the persisted **string** global
+`giveawayListChatDelimiter` to `comma`. Set it to `space` to switch back.
+There is no heading, command, bullet, or trailing delimiter in the user list:
+
+```text
+space: alice bob quiet_lurker
+comma: alice,bob,quiet_lurker
+```
+
+The labels above illustrate the settings; they are not posted in chat. Changes
+take effect on the next command. If the global is missing, the first run with
+users creates it as `space`. Blank or invalid settings use spaces; invalid
+settings also log a warning. The timestamped files always retain one name per line.
+
+If the complete message is **500 characters or fewer**, it is sent once. If it exceeds
 500 characters, only this message is posted:
 
 > User list is too long for chat. Mods: please ask the streamer to check the text file.
@@ -77,6 +91,7 @@ variable viewer (or set with Core → Globals → Global Set):
 | --- | --- | --- |
 | `giveawayListOutputPath` | blank | Absolute base filename. Each export adds a UTC timestamp and unique ID before its extension. Blank uses Desktop/giveaway-names.txt as the base; parent folder must exist. |
 | `giveawayListExcludedLogins` | blank | Comma-separated Twitch login names to exclude, ignoring case and surrounding spaces. |
+| `giveawayListChatDelimiter` | `space` | `space` or `comma`, case-insensitive. Controls chat only; text files stay one name per line. A literal comma is also accepted. |
 
 By default everyone is included, including your account and connected bots.
 The list represents the last presence refresh, not a fresh Twitch lookup when
@@ -86,7 +101,7 @@ available, Streamer.bot returns the available users; names are sorted afterward.
 Edits to command permissions alone cannot grant ordinary viewers export access:
 the C# role check independently requires a broadcaster or moderator.
 
-When upgrading to v0.2.1, re-import and overwrite the existing action/command,
+When upgrading to v0.3.0, re-import and overwrite the existing action/command,
 then recheck that the command is enabled. An existing custom output path remains
 the base for new timestamped filenames; no configuration migration is required.
 
@@ -112,8 +127,8 @@ and upload build artifacts. To publish a release, update `VERSION`, commit
 the change, and push a matching tag:
 
 ```sh
-git tag v0.2.1
-git push origin main v0.2.1
+git tag v0.3.0
+git push origin main v0.3.0
 ```
 
 The release job runs only after both operating systems pass, validates the tag,

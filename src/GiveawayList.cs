@@ -8,8 +8,10 @@ Wait for a refresh, then type !giveawaylist as the broadcaster or a moderator.
 
 Each run saves a new timestamped giveaway-names-<UTC timestamp>-<unique id>.txt
 on the Desktop of the account running Streamer.bot, one login name per line.
-The names are also sent to chat in one comma-separated message if the entire
-message fits Twitch's 500-character limit. Otherwise chat tells moderators to
+The names are also sent to chat as plain usernames, space-separated by default
+or comma-separated when configured, if the message fits Twitch's 500-character
+limit. No heading, commands or extra text is added to the username list.
+Otherwise chat tells moderators to
 ask the streamer to check the text file; no filename or path is posted.
 The latest presence refresh includes lurkers connected to chat, not anonymous
 video viewers. Connected bot accounts and the broadcaster are included unless
@@ -29,6 +31,8 @@ Optional persisted string globals (Global Variable Viewer):
 giveawayListOutputPath: absolute base filename; a timestamp/id is added each run.
 Blank uses Desktop/giveaway-names as the base. Existing files are never replaced.
 giveawayListExcludedLogins: comma-separated Twitch logins; blank includes all.
+giveawayListChatDelimiter: space (default) or comma. Only affects chat; files
+always have one username per line. Changes take effect on the next command.
 Parent directories must already exist. No chat message can choose a destination.
 Check the Streamer.bot log for success/failure.
 An empty result or failed write creates no new export and posts a short status
@@ -48,7 +52,6 @@ public partial class CPHInline
 {
     private const int MaximumUsers = 100000;
     private const int ChatCharacterLimit = 500;
-    private const string ChatPrefix = "Giveaway users: ";
     private const string ChatMessageArgument = "giveawayListChatMessage";
     private const string ExportSucceededArgument = "giveawayListExportSucceeded";
     private const string FitsChatArgument = "giveawayListFitsChat";
@@ -115,6 +118,8 @@ public partial class CPHInline
 
     private bool SaveAndPrepareChat(List<string> names)
     {
+        string delimiter = GetChatDelimiter();
+        string formattedList = string.Join(delimiter, names);
         string temporaryPath = null;
         try
         {
@@ -157,8 +162,23 @@ public partial class CPHInline
             }
         }
 
-        string message = ChatPrefix + string.Join(", ", names);
-        return PrepareChat(message, true);
+        return PrepareChat(formattedList, true);
+    }
+
+    private string GetChatDelimiter()
+    {
+        string configured = CPH.GetGlobalVar<string>("giveawayListChatDelimiter", true);
+        if (configured == null)
+        {
+            configured = "space";
+            CPH.SetGlobalVar("giveawayListChatDelimiter", configured, true);
+        }
+        configured = configured.Trim();
+        if (configured == "," || string.Equals(configured, "comma", StringComparison.OrdinalIgnoreCase))
+            return ",";
+        if (configured.Length != 0 && !string.Equals(configured, "space", StringComparison.OrdinalIgnoreCase))
+            CPH.LogWarn("Giveaway List: unrecognized chat delimiter; using space. Set giveawayListChatDelimiter to space or comma.");
+        return " ";
     }
 
     private bool PrepareChat(string message, bool exportSucceeded)

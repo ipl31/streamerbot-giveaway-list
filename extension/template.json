@@ -2,7 +2,7 @@
   "meta": {
     "name": "Twitch Giveaway List",
     "author": "ipl31",
-    "version": "0.2.1",
+    "version": "0.3.0",
     "description": "Post present Twitch users in chat and save timestamped history files for a spin wheel.",
     "autoRunAction": null,
     "minimumVersion": null
@@ -74,7 +74,7 @@
                 "index": 0,
                 "type": 99999,
                 "name": "Save timestamped giveaway file",
-                "description": "Save full history file and prepare chat text/length flag. The separate native Twitch Send Message sub-actions post to chat.",
+                "description": "Save history one name per line; prepare plain chat usernames using persisted giveawayListChatDelimiter (space or comma). Separate native Twitch Send Message sub-actions post to chat.",
                 "references": [],
                 "byteCode": "",
                 "precompile": true,

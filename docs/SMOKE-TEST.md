@@ -20,7 +20,10 @@ here when this test is performed. Use a disposable/test Streamer.bot profile.
    without sending messages, and wait for it to appear in the presence list.
 4. Run `!giveawaylist` as broadcaster. Check the log count and Desktop output.
    Confirm the silent account is included and each name occupies exactly one line.
-   Confirm short lists also appear as one comma-separated chat message.
+   Confirm short lists appear as plain usernames separated by spaces, without
+   the old `Giveaway users:` heading. Set persisted string global
+   `giveawayListChatDelimiter` to `comma` and verify `alice,bob` style output.
+   Set it back to `space` and confirm history files use one name per line in both modes.
    Run it twice and confirm two timestamped files with all prior history intact.
 5. Run it as moderator and as ordinary viewer. Moderator should export; ordinary
    viewer should create no file and post nothing. Confirm bot accounts are included by default.
@@ -34,8 +37,8 @@ here when this test is performed. Use a disposable/test Streamer.bot profile.
 8. Paste the successful file into the wheel and compare the entry count.
 9. Re-import the same package. Review overwrite options and confirm stable IDs do
    not create duplicate actions/commands. Recheck permissions and enabled state.
-10. With a list exceeding 500 characters including `Giveaway users: ` and comma
-    separators, confirm only the moderator file-check notice appears in chat,
+10. With a list exceeding 500 characters including the selected separators,
+    confirm only the moderator file-check notice appears in chat,
     without any filename/path. Confirm the complete list is in the new history file.
 11. If a separate bot account is connected, confirm chat messages use that account.
     Without it, confirm broadcaster fallback. Confirm saved history survives any
