@@ -2,26 +2,26 @@ using System;
 using System.IO;
 using System.Text;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
-// Streamer.bot supplies CPH at runtime. This stub executes the unchanged source
-// against controlled arguments and files; it does not simulate native imports.
-public partial class CPHInline
-{
-    public FakeCph CPH;
-}
+// Streamer.bot supplies CPH at runtime. The unchanged extension source runs
+// against controlled arguments/files/chat here; this is not a native import test.
+public partial class CPHInline { public FakeCph CPH; }
 
 public class FakeCph
 {
     public readonly Dictionary<string, object> Arguments = new Dictionary<string, object>();
     public readonly Dictionary<string, object> Globals = new Dictionary<string, object>();
     public readonly List<string> Logs = new List<string>();
+    public readonly List<string> Messages = new List<string>();
+    public bool FailChat;
+    public Action BeforeSend;
     public bool TryGetArg<T>(string name, out T value)
     {
         object found;
         if (Arguments.TryGetValue(name, out found) && found is T)
         { value = (T)found; return true; }
-        value = default(T);
-        return false;
+        value = default(T); return false;
     }
     public T GetGlobalVar<T>(string name, bool persisted)
     {
@@ -30,11 +30,19 @@ public class FakeCph
     }
     public void LogWarn(string message) { Logs.Add(message); }
     public void LogInfo(string message) { Logs.Add(message); }
+    public void SendMessage(string message, bool useBot, bool fallback)
+    {
+        if (BeforeSend != null) BeforeSend();
+        if (FailChat) throw new IOException("Simulated chat failure");
+        if (!useBot || !fallback) throw new Exception("Expected bot with broadcaster fallback");
+        Messages.Add(message);
+    }
 }
 
 public static class Program
 {
     private static int checks;
+    private const string LongMessage = "User list is too long for chat. Mods: please ask the streamer to check the text file.";
     private static void Check(bool condition, string label)
     {
         if (!condition) throw new Exception("FAIL: " + label);
@@ -55,6 +63,17 @@ public static class Program
         if (platform != null) cph.Arguments["randomUserType" + index] = platform;
     }
     private static bool Run(FakeCph cph) { return new CPHInline { CPH = cph }.Execute(); }
+    private static string[] Exports(string directory) { return Directory.GetFiles(directory, "names-*.txt"); }
+    private static void BoundaryUsers(FakeCph cph, int finalLength)
+    {
+        for (int i = 0; i < 18; i++) User(cph, i, "u" + i.ToString("D2") + new string('a', 21));
+        User(cph, 18, "z" + new string('b', finalLength - 1));
+    }
+    private static string LatestExport(FakeCph cph)
+    {
+        string log = cph.Logs.Find(x => x.Contains("exported "));
+        return log.Substring(log.IndexOf(" names to ", StringComparison.Ordinal) + " names to ".Length);
+    }
 
     public static void Main()
     {
@@ -63,48 +82,73 @@ public static class Program
         try
         {
             string path = Path.Combine(directory, "names.txt");
+            File.WriteAllText(path, "legacy export");
             var cph = Setup(path);
             User(cph, 0, " Zebra "); User(cph, 1, "alpha"); User(cph, 2, "ALPHA");
             User(cph, 3, " "); User(cph, 4, "other", "youtube");
             User(cph, 5, "missing_platform", null); User(cph, 6, "bad\nextra");
             User(cph, 7, "BotAccount"); User(cph, 8, "ordinary_lurker");
             cph.Globals["giveawayListExcludedLogins"] = " BOTACCOUNT, another_bot ";
+            cph.BeforeSend = () => Check(Exports(directory).Length == 1, "file is saved before chat");
             Check(Run(cph), "broadcaster export succeeds");
-            Check(string.Join(",", File.ReadAllLines(path)) == "alpha,ordinary_lurker,zebra",
-                "sorted, unique Twitch logins including lurker; exclusions and invalid names filtered");
-            byte[] bytes = File.ReadAllBytes(path);
-            Check(!(bytes.Length >= 3 && bytes[0] == 239 && bytes[1] == 187 && bytes[2] == 191),
-                "UTF-8 has no BOM");
-            Check(cph.Logs.Exists(x => x.Contains("exported 3 names")), "success count logged");
+            string first = LatestExport(cph);
+            Check(string.Join(",", File.ReadAllLines(first)) == "alpha,ordinary_lurker,zebra",
+                "sorted unique Twitch logins including lurker; exclusions/invalid names filtered");
+            Check(Regex.IsMatch(Path.GetFileName(first), @"^names-\d{8}T\d{9}Z-[a-f0-9]{32}\.txt$"),
+                "filename contains UTC timestamp and unique ID");
+            Check(File.ReadAllText(path) == "legacy export", "legacy base filename untouched");
+            byte[] bytes = File.ReadAllBytes(first);
+            Check(!(bytes.Length >= 3 && bytes[0] == 239 && bytes[1] == 187 && bytes[2] == 191), "no UTF-8 BOM");
+            Check(cph.Messages.Count == 1 && cph.Messages[0] == "Giveaway users: alpha, ordinary_lurker, zebra",
+                "short list posted once with comma separators");
 
             cph = Setup(path); cph.Arguments["userId"] = "456";
             cph.Arguments["isModerator"] = true; User(cph, 0, "replacement");
             Check(Run(cph), "moderator can export");
-            Check(File.ReadAllText(path).Trim() == "replacement", "existing file replaced without appending");
+            string second = LatestExport(cph);
+            Check(first != second && Exports(directory).Length == 2, "rapid consecutive runs create distinct files");
+            Check(File.ReadAllText(second).Trim() == "replacement", "new file has current list");
+            Check(File.ReadAllText(first).Contains("ordinary_lurker"), "first history file remains intact");
 
             cph = Setup(path); cph.Arguments["userId"] = "456"; User(cph, 0, "unauthorized");
-            Check(!Run(cph), "ordinary viewer rejected");
-            Check(File.ReadAllText(path).Trim() == "replacement", "unauthorized run preserves file");
-
-            cph = Setup(path); cph.Arguments["commandSource"] = "youtube";
-            User(cph, 0, "wrong_source"); Check(!Run(cph), "other platforms rejected");
-            cph = Setup(path); cph.Arguments.Remove("userId");
-            User(cph, 0, "missing_identity"); Check(!Run(cph), "missing identity rejected");
+            Check(!Run(cph) && cph.Messages.Count == 0, "ordinary viewer cannot export or post");
+            Check(Exports(directory).Length == 2, "unauthorized run creates no history");
+            cph = Setup(path); cph.Arguments["commandSource"] = "youtube"; User(cph, 0, "wrong_source");
+            Check(!Run(cph) && cph.Messages.Count == 0, "other platforms cannot export or post");
+            cph = Setup(path); cph.Arguments.Remove("userId"); User(cph, 0, "missing_identity");
+            Check(!Run(cph), "missing identity rejected");
 
             cph = Setup(path);
-            Check(!Run(cph), "empty list fails");
-            Check(File.ReadAllText(path).Trim() == "replacement", "empty list preserves previous file");
-            Check(cph.Logs.Exists(x => x.Contains("do not use it")), "empty list warns of stale file");
-
-            cph = Setup(path); User(cph, 0, "excluded");
-            cph.Globals["giveawayListExcludedLogins"] = "excluded";
+            Check(!Run(cph) && Exports(directory).Length == 2, "empty list creates no new file");
+            Check(cph.Messages.Count == 1 && cph.Messages[0].StartsWith("No eligible users"), "empty result status posted");
+            cph = Setup(path); User(cph, 0, "excluded"); cph.Globals["giveawayListExcludedLogins"] = "excluded";
             Check(!Run(cph), "fully excluded list fails");
 
-            cph = Setup(Path.Combine(directory, "missing-directory", "names.txt"));
-            User(cph, 0, "viewer"); Check(!Run(cph), "write failure handled");
+            cph = Setup(Path.Combine(directory, "missing-directory", "names.txt")); User(cph, 0, "viewer");
+            Check(!Run(cph), "write failure handled");
             Check(cph.Logs.Exists(x => x.Contains("export failed")), "write failure logged");
+            Check(cph.Messages.Count == 1 && cph.Messages[0].Contains("could not be saved")
+                && !cph.Messages[0].Contains(directory) && !cph.Messages[0].Contains("viewer"),
+                "failed save posts generic error without names or path");
             cph = Setup("relative.txt"); User(cph, 0, "viewer");
             Check(!Run(cph), "relative destination rejected");
+
+            cph = Setup(path); BoundaryUsers(cph, 16);
+            Check(Run(cph), "500-character list succeeds");
+            Check(cph.Messages.Count == 1 && cph.Messages[0].Length == 500, "exactly 500 including prefix and separators is sent");
+            Check(File.ReadAllLines(LatestExport(cph)).Length == 19, "boundary list saved one name per line");
+            cph = Setup(path); BoundaryUsers(cph, 17);
+            Check(Run(cph), "501-character list still saves successfully");
+            Check(cph.Messages.Count == 1 && cph.Messages[0] == LongMessage, "over-limit list posts only moderator fallback");
+            Check(!cph.Messages[0].Contains("names-") && !cph.Messages[0].Contains(directory)
+                && !cph.Messages[0].Contains("u00"), "fallback exposes no filename, path or usernames");
+            Check(File.ReadAllLines(LatestExport(cph)).Length == 19, "full over-limit list saved");
+
+            cph = Setup(path); User(cph, 0, "chat_failure"); cph.FailChat = true;
+            Check(!Run(cph), "chat exception handled");
+            Check(File.Exists(LatestExport(cph)), "saved history survives chat failure");
+            Check(cph.Logs.Exists(x => x.Contains("chat send failed"))
+                && !cph.Logs.Exists(x => x.Contains("export failed")), "chat failure distinguished from file failure");
             Check(Directory.GetFiles(directory, "*.tmp").Length == 0, "temporary files cleaned up");
             Console.WriteLine("Passed " + checks + " behavior checks.");
         }

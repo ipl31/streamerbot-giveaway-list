@@ -1,19 +1,22 @@
-Fixes the v0.1.0 import error that incorrectly rejected Streamer.bot 1.0.4
-while displaying a minimum required version of 1.0.4. The optional extension
-version restriction has been removed; the inclusive package minimum remains
-1.0.4. Download and import this new `.sb` file instead of the v0.1.0 asset.
+Post giveaway users in Twitch chat and keep a timestamped export history.
 
-Twitch giveaway-list export for Streamer.bot: one present username per line,
-ready to paste into a wheel. Broadcaster/moderator access, sorted unique names,
-optional excluded logins and output path.
+- Lists that fit Twitch's 500-character message limit are posted once as
+  comma-separated names. The limit includes the prefix and separators.
+- Longer lists post only: "User list is too long for chat. Mods: please ask the
+  streamer to check the text file." No filename or path is posted.
+- Every successful run also saves the full list, one name per line, in a new
+  `giveaway-names-<UTC timestamp>-<unique id>.txt` file on the Desktop. Files are
+  never overwritten, including when commands run in rapid succession.
+- Custom `giveawayListOutputPath` values remain supported as base filenames;
+  timestamps and unique IDs are appended before the extension.
+- The file is saved before chat output. A failed save posts a generic error;
+  a chat failure retains the saved history. Moderator/broadcaster access remains.
 
-Download the `.sb` asset and import it into Streamer.bot. Enable the imported
-command and Twitch Present Viewers **Live Update**, wait for a presence refresh,
-then type `!giveawaylist`. Output defaults to Desktop/giveaway-names.txt.
+Download the `.sb` asset and re-import it, overwriting the existing action/command.
+Recheck that `!giveawaylist` is enabled. Keep Twitch Present Viewers **Live Update**
+enabled and allow a presence refresh. Streamer.bot 1.0.4 or newer is supported.
 
-Package validation and C# behavior tests run on Linux and
-Windows. Native Streamer.bot import and live Twitch presence have not yet been
-smoke-tested. Follow docs/SMOKE-TEST.md before a real giveaway.
-
-The `.sb.sha256` asset records the package checksum. The source ZIP is not the
-installable extension.
+Automated package and C# behavior checks run on Linux and Windows, including
+500/501-character boundaries, file history, and generic fallback messages.
+Native Streamer.bot import/live Twitch chat testing remains outstanding; see
+docs/SMOKE-TEST.md. The `.sb.sha256` asset records the package checksum.

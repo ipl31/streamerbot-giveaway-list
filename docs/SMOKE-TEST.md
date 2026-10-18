@@ -14,16 +14,26 @@ here when this test is performed. Use a disposable/test Streamer.bot profile.
    without sending messages, and wait for it to appear in the presence list.
 4. Run `!giveawaylist` as broadcaster. Check the log count and Desktop output.
    Confirm the silent account is included and each name occupies exactly one line.
+   Confirm short lists also appear as one comma-separated chat message.
+   Run it twice and confirm two timestamped files with all prior history intact.
 5. Run it as moderator and as ordinary viewer. Moderator should export; ordinary
-   viewer should not change the file. Confirm bot accounts are included by default.
+   viewer should create no file and post nothing. Confirm bot accounts are included by default.
 6. Set `giveawayListExcludedLogins` to a known account and repeat; verify removal.
    Set `giveawayListOutputPath` to an absolute filename in an existing temporary
-   directory and confirm it writes there. Reset both variables afterward.
+   directory and confirm new filenames use that base plus timestamp/unique ID.
+   Reset both variables afterward.
 7. Use a nonexistent output directory and confirm a warning without a partial file.
-   If no eligible users exist, confirm the log warns that any old export is stale.
+   Confirm chat reports the failure without usernames, filename or path.
+   If no eligible users exist, confirm a generic status and no new export.
 8. Paste the successful file into the wheel and compare the entry count.
 9. Re-import the same package. Review overwrite options and confirm stable IDs do
    not create duplicate actions/commands. Recheck permissions and enabled state.
+10. With a list exceeding 500 characters including `Giveaway users: ` and comma
+    separators, confirm only the moderator file-check notice appears in chat,
+    without any filename/path. Confirm the complete list is in the new history file.
+11. If a separate bot account is connected, confirm chat messages use that account.
+    Without it, confirm broadcaster fallback. Confirm saved history survives any
+    chat delivery failure; inspect the log because SendMessage has no delivery result.
 
 Evidence to record: Streamer.bot version, OS, tag, import result, compilation
 result, silent-account inclusion, roles checked, output count, and date.

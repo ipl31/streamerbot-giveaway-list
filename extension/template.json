@@ -2,8 +2,8 @@
   "meta": {
     "name": "Twitch Giveaway List",
     "author": "ipl31",
-    "version": "0.1.1",
-    "description": "Export present Twitch users as one login per line for a spin wheel.",
+    "version": "0.2.0",
+    "description": "Post present Twitch users in chat and save timestamped history files for a spin wheel.",
     "autoRunAction": null,
     "minimumVersion": null
   },
@@ -50,7 +50,7 @@
             "index": 1,
             "type": 99999,
             "name": "Export giveaway names",
-            "description": "Broadcaster/mod-only export; one Twitch login per line. Configure persisted globals as described in source.",
+            "description": "Broadcaster/mod-only chat list plus timestamped files. Oversized lists post a generic file-check notice. Configure persisted globals as described in source.",
             "references": [],
             "byteCode": "",
             "precompile": true,

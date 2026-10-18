@@ -1,8 +1,8 @@
 # Streamer.bot Giveaway List
 
-Export everyone present in your Twitch chat as **one login name per line**, ready
-to paste into a spin wheel. Includes lurkers connected to chat. Names are sorted
-and deduplicated; this extension does not spin the wheel or choose a winner.
+Post everyone present in your Twitch chat and save a **timestamped history file**
+with one login name per line, ready to paste into a spin wheel. Includes lurkers
+connected to chat. Names are sorted and deduplicated.
 
 ## Install
 
@@ -19,8 +19,9 @@ and deduplicated; this extension does not spin the wheel or choose a winner.
    **Live Update**, choose **1 minute**, and allow a refresh before using it.
    Without Live Update, recent-activity tracking may omit lurkers.
 6. As the broadcaster or a moderator, type `!giveawaylist` in Twitch chat.
-7. Open **giveaway-names.txt** on the Desktop of the account running Streamer.bot.
-   Copy its contents into your wheel.
+7. If the complete list fits in one chat message, it appears in chat. Each run
+   also creates **giveaway-names-<UTC timestamp>-<unique id>.txt** on the Desktop
+   of the account running Streamer.bot. Copy that file's contents into your wheel.
 
 The package targets Streamer.bot **1.0.4 or newer** and uses export format 23.
 Use **v0.1.1 or newer**: v0.1.0 incorrectly rejected version 1.0.4 due to an
@@ -36,17 +37,29 @@ bob
 quiet_lurker
 ```
 
-Each successful export replaces the file. An empty result or failed write leaves
-the old file untouched and logs a warning: **do not use an older export for a new
-giveaway**. Check Streamer.bot's log for the successful export count and path.
-The extension sends no chat messages and uploads no names.
+Every successful export creates a new file with a UTC timestamp and unique ID;
+existing history and older fixed-name exports are never overwritten. The file
+is saved before posting to chat. Check Streamer.bot's log for its count and path.
+
+Chat uses comma-separated names, prefixed with `Giveaway users: `. If the entire
+message is **500 characters or fewer**, it is sent as one message. If it exceeds
+500 characters, only this message is posted:
+
+> User list is too long for chat. Mods: please ask the streamer to check the text file.
+
+The full list is still saved in the history file. No filename or filesystem path
+is posted in chat, and long lists are not truncated or split across messages.
+Messages use the connected bot account, falling back to the broadcaster account.
+An empty list or failed file write posts a generic status without usernames or
+paths and creates no new export. A chat failure is logged and retains any saved
+history file. **Do not use an older export for a new giveaway.**
 
 Optional **persisted string global variables**, editable in Streamer.bot's global
 variable viewer (or set with Core → Globals → Global Set):
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `giveawayListOutputPath` | blank | Absolute output filename; blank uses Desktop/giveaway-names.txt. Parent folder must exist. |
+| `giveawayListOutputPath` | blank | Absolute base filename. Each export adds a UTC timestamp and unique ID before its extension. Blank uses Desktop/giveaway-names.txt as the base; parent folder must exist. |
 | `giveawayListExcludedLogins` | blank | Comma-separated Twitch login names to exclude, ignoring case and surrounding spaces. |
 
 By default everyone is included, including your account and connected bots.
@@ -56,6 +69,10 @@ The collection sub-action requests up to **100,000** present users. If fewer are
 available, Streamer.bot returns the available users; names are sorted afterward.
 Edits to command permissions alone cannot grant ordinary viewers export access:
 the C# role check independently requires a broadcaster or moderator.
+
+When upgrading to v0.2.0, re-import and overwrite the existing action/command,
+then recheck that the command is enabled. An existing custom output path remains
+the base for new timestamped filenames; no configuration migration is required.
 
 ## Build and release
 
@@ -75,12 +92,12 @@ The readable template is in `extension/template.json`; the builder embeds
 imports identify the same command/action; review overwrite choices on upgrades.
 
 Pushes and pull requests run package and behavior checks on Linux and Windows
-and upload build artifacts. To publish a preview release, update `VERSION`, commit
+and upload build artifacts. To publish a release, update `VERSION`, commit
 the change, and push a matching tag:
 
 ```sh
-git tag v0.1.1
-git push origin main v0.1.1
+git tag v0.2.0
+git push origin main v0.2.0
 ```
 
 The release job runs only after both operating systems pass, validates the tag,
@@ -94,3 +111,5 @@ remains outstanding and is documented in the release notes. See
 - [Present Viewers and Live Update](https://docs.streamer.bot/api/triggers/twitch/general/present-viewers)
 - [Add Random Users](https://docs.streamer.bot/api/sub-actions/twitch/user/add-random-users)
 - [Command permissions](https://docs.streamer.bot/guide/core/commands)
+- [Twitch Send Chat Message limit](https://dev.twitch.tv/docs/api/reference/#send-chat-message)
+- [Streamer.bot SendMessage](https://docs.streamer.bot/api/csharp/methods/twitch/chat/send-message)

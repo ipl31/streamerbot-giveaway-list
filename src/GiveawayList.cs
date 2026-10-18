@@ -6,8 +6,11 @@ Import dialog. Enable the imported !giveawaylist command. In Platforms > Twitch
 > Settings > Present Viewers, enable Live Update and choose a 1-minute interval.
 Wait for a refresh, then type !giveawaylist as the broadcaster or a moderator.
 
-The file giveaway-names.txt appears on the Desktop of the account running
-Streamer.bot. Copy its contents into your wheel: one login name per line.
+Each run saves a new timestamped giveaway-names-<UTC timestamp>-<unique id>.txt
+on the Desktop of the account running Streamer.bot, one login name per line.
+The names are also sent to chat in one comma-separated message if the entire
+message fits Twitch's 500-character limit. Otherwise chat tells moderators to
+ask the streamer to check the text file; no filename or path is posted.
 The latest presence refresh includes lurkers connected to chat, not anonymous
 video viewers. Connected bot accounts and the broadcaster are included unless
 excluded in configuration. The collection sub-action is capped at 100000.
@@ -17,12 +20,13 @@ add Twitch > User > Add Random Users (Count 100000, Present Only checked),
 then Core > C# Code > Execute C# Code containing this entire file.
 
 Optional persisted string globals (Global Variable Viewer):
-giveawayListOutputPath: absolute output filename; blank uses the Desktop.
+giveawayListOutputPath: absolute base filename; a timestamp/id is added each run.
+Blank uses Desktop/giveaway-names as the base. Existing files are never replaced.
 giveawayListExcludedLogins: comma-separated Twitch logins; blank includes all.
 Parent directories must already exist. No chat message can choose a destination.
 Check the Streamer.bot log for success/failure.
-An empty result or failed write leaves the previous export untouched: do not
-use that older file for a new giveaway. Each successful run replaces the file.
+An empty result or failed write creates no new export and posts a short status
+without names, filenames or paths. Historical files remain untouched.
 
 Package and behavior tests are automated. A real Streamer.bot import and live
 Twitch presence check are still required; see docs/SMOKE-TEST.md.
@@ -32,10 +36,14 @@ using System;
 using System.IO;
 using System.Text;
 using System.Collections.Generic;
+using System.Globalization;
 
 public partial class CPHInline
 {
     private const int MaximumUsers = 100000;
+    private const int ChatCharacterLimit = 500;
+    private const string ChatPrefix = "Giveaway users: ";
+    private const string TooLongMessage = "User list is too long for chat. Mods: please ask the streamer to check the text file.";
 
     public bool Execute()
     {
@@ -83,6 +91,7 @@ public partial class CPHInline
         {
             CPH.LogWarn("Giveaway List: no eligible Twitch users found. "
                 + "Previous export left unchanged; do not use it for this giveaway.");
+            SendChat("No eligible users found. Mods: please ask the streamer to check the chat presence settings.");
             return false;
         }
 
@@ -101,19 +110,22 @@ public partial class CPHInline
             else path = configuredPath;
             if (!Path.IsPathRooted(path))
                 throw new IOException("giveawayListOutputPath must be an absolute filename.");
+            string stamp = DateTime.UtcNow.ToString("yyyyMMdd'T'HHmmssfff'Z'", CultureInfo.InvariantCulture);
+            string uniqueId = Guid.NewGuid().ToString("N");
+            path = Path.Combine(Path.GetDirectoryName(path),
+                Path.GetFileNameWithoutExtension(path) + "-" + stamp + "-" + uniqueId
+                + Path.GetExtension(path));
             temporaryPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
             File.WriteAllLines(temporaryPath, names, new UTF8Encoding(false));
-            if (File.Exists(path))
-                File.Replace(temporaryPath, path, null);
-            else
-                File.Move(temporaryPath, path);
+            // Move refuses to overwrite, even in the unlikely event of a collision.
+            File.Move(temporaryPath, path);
             CPH.LogInfo("Giveaway List: exported " + names.Count + " names to " + path);
-            return true;
         }
         catch (Exception exception)
         {
             CPH.LogWarn("Giveaway List: export failed; previous export left unchanged. "
                 + "Do not use an older file for this giveaway. " + exception.Message);
+            SendChat("User list could not be saved. Mods: please ask the streamer to check Streamer.bot's log.");
             return false;
         }
         finally
@@ -124,6 +136,24 @@ public partial class CPHInline
                 catch (Exception exception)
                 { CPH.LogWarn("Giveaway List: temporary file cleanup failed. " + exception.Message); }
             }
+        }
+
+        string message = ChatPrefix + string.Join(", ", names);
+        return SendChat(message.Length <= ChatCharacterLimit ? message : TooLongMessage);
+    }
+
+    private bool SendChat(string message)
+    {
+        try
+        {
+            CPH.SendMessage(message, true, true);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            // A chat failure must not remove an already saved history file.
+            CPH.LogWarn("Giveaway List: chat send failed. Any saved export is retained. " + exception.Message);
+            return false;
         }
     }
 
