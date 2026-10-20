@@ -266,7 +266,9 @@ namespace GiveawayRuntime
             var clock = new TickClock();
             try
             {
-                Type factory = Type.GetType("System.Net.WebRequest, System", true);
+                // Framework's GAC requires the full assembly identity; a partial
+                // "System" lookup works on .NET 8 but fails on Framework 4.8.1.
+                Type factory = Type.GetType("System.Net.WebRequest, System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089", true);
                 request = factory.GetMethod("Create", new Type[] { typeof(string) }).Invoke(null, new object[] { spec.Url });
                 Type requestType = request.GetType();
                 requestType.GetProperty("Method").SetValue(request, "GET", null);
