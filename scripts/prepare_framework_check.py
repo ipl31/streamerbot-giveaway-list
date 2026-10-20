@@ -4,7 +4,7 @@ import hashlib
 import io
 from pathlib import Path
 import shutil
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 from zipfile import ZipFile
 
 URL = "https://streamer.bot/api/releases/streamer.bot/1.0.4/download"
@@ -19,7 +19,9 @@ def prepare(output, source=None):
         for name in NAMES:
             shutil.copyfile(source / name, output / name)
         return
-    with urlopen(URL, timeout=60) as response:
+    # The official endpoint rejects urllib's default user agent with HTTP 403.
+    request = Request(URL, headers={"User-Agent": "streamerbot-giveaway-list/compatibility-check"})
+    with urlopen(request, timeout=60) as response:
         data = response.read(50 * 1024 * 1024 + 1)
     if len(data) > 50 * 1024 * 1024 or hashlib.sha256(data).hexdigest() != SHA256:
         raise ValueError("Official Streamer.bot package checksum mismatch")
