@@ -30,6 +30,13 @@ jobs:
         run: python scripts/verify_upstream.py
       - name: Compile and test extension behavior
         run: dotnet run --project tests/BehaviorTests --configuration Release
+      - name: Obtain verified official compatibility assemblies
+        if: runner.os == 'Windows'
+        run: python scripts/prepare_framework_check.py
+      - name: Compile both native code variants and test Framework adapters
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/check_framework.ps1
       - name: Build import package
         run: python scripts/build.py
       - name: Validate release version

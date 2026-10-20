@@ -65,7 +65,7 @@ flag and writes the file. The builder recursively embeds source inside groups;
 tests verify parent IDs, indexes, collapsed state, enabled branches and messages,
 and that the save source contains no chat-send call.
 
-## Add Random Users
+## Historical Add Random Users (removed in v0.4.0)
 
 The required fields were checked against the official Streamer.bot **1.0.4**
 application, downloaded from:
@@ -94,3 +94,24 @@ property**; using the UI label as a guessed JSON key would be wrong.
 The full proprietary application/decompiled source is not distributed here.
 These schema checks establish field compatibility, not successful GUI import or
 live Twitch behavior. See SMOKE-TEST.md for the remaining native checks.
+
+## Direct fetch compilation (v0.4.0)
+
+Both type-99999 steps embed the main and shared helper source; only the collector
+ID gets `#define GIVEAWAY_FETCH`. The builder requires each known ID exactly once.
+The old type-22 collector is absent; all groups are expanded.
+
+Inspection of the same official 1.0.4 package confirms public string properties
+`TwitchOAuthToken` and `TwitchClientId` on `IInlineInvokeProxy`. The interface
+assembly targets .NET Framework 4.8.1. Native compilation with empty references
+uses a core-library fallback; explicit references can disable that fallback.
+Adapters resolve framework HTTP and bundled Newtonsoft.Json at runtime instead
+of inserting installation-specific paths. CI checksum-verifies the ZIP above
+and extracts only the two compatibility DLLs into an ignored directory.
+
+The native Roslyn rewrite preserves root usings but wraps all member declarations
+in a generated namespace. Helpers therefore use namespace-local usings and main
+code uses relative qualified helper types. Windows CI compiles both bare and
+wrapped variants against the real API and mscorlib, then runs loopback HTTP and
+JSON adapter tests on Framework. These checks do not claim a GUI import or a
+live authenticated Twitch run.

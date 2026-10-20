@@ -6,18 +6,18 @@ here when this test is performed. Use a disposable/test Streamer.bot profile.
 
 1. Import the release `.sb`. Confirm one command, one action, and one matching
    Command Triggered trigger. Confirm the three top-level groups read Get all
-   present Twitch users, Save timestamped giveaway file, and Post users to chat
-   (if the list fits). The first group should be collapsed. Expand it to inspect
-   the internal collector: Count 100000, Present Only checked, no group restriction.
-   Confirm C# compiles. Expand the final group and confirm its native If/Else tests
+   connected Twitch users, Save timestamped giveaway file, and Post users to chat
+   (if the list fits). All groups should be expanded. The first contains direct-fetch C#;
+   no Add Random Users step remains. Confirm both C# steps compile. Expand the final group and confirm its native If/Else tests
    `%giveawayListFitsChat%` Equals `True`, with a Twitch Send Message in each branch.
    The true branch sends `%giveawayListChatMessage%`; the false branch sends the
    generic moderator file-check notice. Both branches and messages must be enabled.
 2. Confirm command permissions allow Moderators and the imported command is
    disabled until enabled. Enable it.
-3. Connect the broadcaster account and enable Twitch Present Viewers Live Update
-   with a one-minute refresh. Leave a second logged-in account connected to chat
-   without sending messages, and wait for it to appear in the presence list.
+3. Connect/reauthorize the broadcaster account with moderator:read:chatters.
+   Leave a second logged-in account connected to chat without sending messages.
+   Live Update may be disabled: the extension should query Twitch independently.
+   Allow Twitch's own membership propagation delay before comparing rosters.
 4. Run `!giveawaylist` as broadcaster. Check the log count and Desktop output.
    Confirm the silent account is included and each name occupies exactly one line.
    Confirm short lists appear as plain usernames separated by spaces, without
@@ -46,3 +46,9 @@ here when this test is performed. Use a disposable/test Streamer.bot profile.
 
 Evidence to record: Streamer.bot version, OS, tag, import result, compilation
 result, silent-account inclusion, roles checked, output count, and date.
+
+12. With missing/revoked broadcaster permission, confirm the log identifies the
+    connection problem, chat shows a generic status, and no new file is created.
+    Reauthorize, retry, and confirm recovery without reimporting. For a large
+    channel, compare the logged page count and exported roster with Get Chatters;
+    a later-page failure must produce no partial file.

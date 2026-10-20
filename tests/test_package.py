@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 import uuid
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import build
@@ -37,10 +38,14 @@ class PackageTests(unittest.TestCase):
             self.assertEqual(payload["minimumVersion"], "1.0.4")
             self.assertEqual(payload["meta"]["version"], (build.ROOT / "VERSION").read_text().strip())
             self.assertIsNone(payload["meta"]["autoRunAction"])
-            code = next(s for s in build.walk_subactions(payload["data"]["actions"][0]["subActions"])
-                        if s["type"] == 99999)
-            self.assertEqual(base64.b64decode(code["byteCode"]), (build.ROOT / "src/GiveawayList.cs").read_bytes())
-            self.assertEqual(code["references"], [])
+            codes = [s for s in build.walk_subactions(payload["data"]["actions"][0]["subActions"])
+                     if s["type"] == 99999]
+            self.assertEqual(len(codes), 2)
+            for code in codes:
+                self.assertEqual(base64.b64decode(code["byteCode"]), build.inline_source(code["id"] == build.FETCH_CODE_ID))
+                self.assertEqual(code["references"], [])
+            self.assertTrue(base64.b64decode(codes[0]["byteCode"]).startswith(b"#define GIVEAWAY_FETCH\n"))
+            self.assertFalse(base64.b64decode(codes[1]["byteCode"]).startswith(b"#define"))
             digest, filename = artifact.with_suffix(".sb.sha256").read_text().split()
             self.assertEqual(filename, artifact.name)
             self.assertEqual(digest, hashlib.sha256(artifact.read_bytes()).hexdigest())
@@ -65,15 +70,15 @@ class PackageTests(unittest.TestCase):
         self.assertEqual([s["type"] for s in action["subActions"]], [99900, 99900, 99900])
         self.assertEqual([s["index"] for s in action["subActions"]], [0, 1, 2])
         self.assertEqual([s["name"] for s in action["subActions"]], [
-            "Get all present Twitch users", "Save timestamped giveaway file",
+            "Get all connected Twitch users", "Save timestamped giveaway file",
             "Post users to chat (if the list fits)"])
-        self.assertEqual(action["collapsedGroups"], [action["subActions"][0]["id"]])
+        self.assertEqual(action["collapsedGroups"], [])
         collect = action["subActions"][0]["subActions"][0]
-        self.assertEqual(collect["type"], 22)
-        self.assertIs(collect["present"], True)
-        self.assertEqual(collect["count"], "100000")  # Native model stores count as a string.
-        self.assertIs(collect["includeFrom"], False)
-        self.assertEqual(collect["groups"], [])
+        self.assertEqual(collect["type"], 99999)
+        self.assertEqual(collect["id"], build.FETCH_CODE_ID)
+        self.assertFalse(collect["saveResultToVariable"])
+        self.assertNotIn(22, [s["type"] for s in build.walk_subactions(action["subActions"])])
+        self.assertNotIn("randomUserName", build.inline_source().decode())
         identifiers = [action["id"], command["id"], trigger["id"]]
         identifiers += [s["id"] for s in build.walk_subactions(action["subActions"])]
         for identifier in identifiers:
@@ -131,6 +136,25 @@ class PackageTests(unittest.TestCase):
     def test_bad_envelope_rejected(self):
         with self.assertRaises(ValueError):
             build.decode(base64.b64encode(b"WRONG"))
+
+    def test_missing_duplicate_or_unknown_code_binding_fails(self):
+        template = json.loads((build.ROOT / "extension/template.json").read_text())
+        for problem in ["missing", "duplicate", "unknown"]:
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "src").mkdir()
+                (root / "extension").mkdir()
+                (root / "VERSION").write_text("0.4.0\n")
+                for filename in ["GiveawayList.cs", "ChattersClient.cs"]:
+                    (root / "src" / filename).write_bytes((build.ROOT / "src" / filename).read_bytes())
+                payload = json.loads(json.dumps(template))
+                groups = payload["data"]["actions"][0]["subActions"]
+                if problem == "missing": groups[0]["subActions"] = []
+                elif problem == "duplicate": groups[1]["subActions"][0]["id"] = build.FETCH_CODE_ID
+                else: groups[0]["subActions"][0]["id"] = str(uuid.uuid4())
+                (root / "extension/template.json").write_text(json.dumps(payload))
+                with patch.object(build, "ROOT", root):
+                    with self.assertRaises(ValueError): build.assemble()
 
     def test_mismatched_release_tag_fails_before_writing(self):
         with tempfile.TemporaryDirectory() as directory:

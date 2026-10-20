@@ -15,9 +15,9 @@ connected to chat. Names are sorted and deduplicated.
    are disabled by default. The package permits Moderators; the broadcaster is
    exempt from command restrictions. The code also checks the caller's role.
 4. Connect your broadcaster account under **Platforms → Twitch → Accounts**.
-5. Under **Platforms → Twitch → Settings → Present Viewers**, enable
-   **Live Update**, choose **1 minute**, and allow a refresh before using it.
-   Without Live Update, recent-activity tracking may omit lurkers.
+5. Ensure the broadcaster connection grants **moderator:read:chatters**. If the
+   log reports a missing permission, reconnect/reauthorize the broadcaster account.
+   **Live Update is no longer required.** Each command queries Twitch directly.
 6. As the broadcaster or a moderator, type `!giveawaylist` in Twitch chat.
 7. If the complete list fits in one chat message, it appears in chat. Each run
    also creates **giveaway-names-<UTC timestamp>-<unique id>.txt** on the Desktop
@@ -33,9 +33,8 @@ Follow [the smoke test](docs/SMOKE-TEST.md) before using it for a real giveaway.
 
 The imported action shows three groups:
 
-1. **Get all present Twitch users** — collapsed to keep the application's internal
-   collector details out of the main list. Expanding it still shows Streamer.bot's
-   fixed **Add Random Users** label; the count requests all available present users.
+1. **Get all connected Twitch users** — expanded, with a direct Get Chatters C#
+   step. There is no Add Random Users sub-action or presence-cache fallback.
 2. **Save timestamped giveaway file** — writes history and prepares the message.
 3. **Post users to chat (if the list fits)** — expand this to see a native If/Else:
    **True** runs a Twitch Send Message sub-action containing the names; **False**
@@ -94,14 +93,23 @@ variable viewer (or set with Core → Globals → Global Set):
 | `giveawayListChatDelimiter` | `space` | `space` or `comma`, case-insensitive. Controls chat only; text files stay one name per line. A literal comma is also accepted. |
 
 By default everyone is included, including your account and connected bots.
-The list represents the last presence refresh, not a fresh Twitch lookup when
-the command runs. It cannot identify anonymous viewers watching the video.
-The collection sub-action requests up to **100,000** present users. If fewer are
-available, Streamer.bot returns the available users; names are sorted afterward.
+Each command validates the connected broadcaster token, then reads **every page**
+of Twitch's Get Chatters endpoint (up to 1,000 accounts per page), deduplicating
+by Twitch user ID and login. Silent chat-connected accounts are included;
+anonymous video viewers cannot be identified. Twitch membership updates may lag,
+and a paginated roster is not an atomic snapshot when people join or leave.
+
+Both API identity parameters use the broadcaster, even when a moderator invokes
+the command. Missing permission, invalid authentication, malformed responses or
+a failed later page produce a generic chat status and a safe log diagnostic,
+**without creating a file or exporting partial/stale users**. There is no cache
+fallback. Requests have a 15-second timeout and two transient retries within a
+60-second collection budget; rate-limit waits are honored or the run fails.
+The 10,000-page safety limit also fails rather than truncating the list.
 Edits to command permissions alone cannot grant ordinary viewers export access:
 the C# role check independently requires a broadcaster or moderator.
 
-When upgrading to v0.3.0, re-import and overwrite the existing action/command,
+When upgrading to v0.4.0, re-import and overwrite the existing action/command,
 then recheck that the command is enabled. An existing custom output path remains
 the base for new timestamped filenames; no configuration migration is required.
 
@@ -119,16 +127,19 @@ python scripts/build.py
 
 Outputs: `dist/streamerbot-giveaway-list-<VERSION>.sb` and `.sb.sha256`.
 The readable template is in `extension/template.json`; the builder embeds
-`src/GiveawayList.cs` and creates the import envelope. Stable IDs let future
+`src/GiveawayList.cs` plus `src/ChattersClient.cs` and creates the import envelope. Stable IDs let future
 imports identify the same command/action; review overwrite choices on upgrades.
 
 Pushes and pull requests run package and behavior checks on Linux and Windows
-and upload build artifacts. To publish a release, update `VERSION`, commit
+and upload build artifacts. Windows additionally verifies the official 1.0.4
+application ZIP checksum, compiles both inline variants against the actual API
+and minimal .NET Framework references (including native namespace wrapping),
+and runs HTTP/JSON adapter tests on .NET Framework 4.8.1. To publish a release, update `VERSION`, commit
 the change, and push a matching tag:
 
 ```sh
-git tag v0.3.0
-git push origin main v0.3.0
+git tag v0.4.0
+git push origin main v0.4.0
 ```
 
 The release job runs only after both operating systems pass, validates the tag,
@@ -139,8 +150,8 @@ remains outstanding and is documented in the release notes. See
 ## References
 
 - [Streamer.bot import/export](https://docs.streamer.bot/guide/core/import-export)
-- [Present Viewers and Live Update](https://docs.streamer.bot/api/triggers/twitch/general/present-viewers)
-- [Add Random Users](https://docs.streamer.bot/api/sub-actions/twitch/user/add-random-users)
+- [Twitch Get Chatters](https://dev.twitch.tv/docs/api/reference/#get-chatters)
+- [Twitch token validation](https://dev.twitch.tv/docs/authentication/validate-tokens/)
 - [Command permissions](https://docs.streamer.bot/guide/core/commands)
 - [Twitch Send Chat Message limit](https://dev.twitch.tv/docs/api/reference/#send-chat-message)
 - [Streamer.bot SendMessage](https://docs.streamer.bot/api/csharp/methods/twitch/chat/send-message)

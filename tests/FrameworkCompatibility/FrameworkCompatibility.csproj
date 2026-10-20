@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net481</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <StreamerBotDirectory Condition="'$(StreamerBotDirectory)' == ''">$(MSBuildThisFileDirectory)../../.framework-runtime</StreamerBotDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/GiveawayList.cs" Link="GiveawayList.cs" />
+    <Compile Include="../../src/ChattersClient.cs" Link="ChattersClient.cs" />
+    <Reference Include="Streamer.bot.Plugin.Interface"><HintPath>$(StreamerBotDirectory)/Streamer.bot.Plugin.Interface.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="Newtonsoft.Json"><HintPath>$(StreamerBotDirectory)/Newtonsoft.Json.dll</HintPath><Private>true</Private></Reference>
+  </ItemGroup>
+</Project>

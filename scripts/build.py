@@ -9,6 +9,13 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
+FETCH_CODE_ID = "18d54dc8-79d7-53da-8462-f7f4f58a0ee1"
+SAVE_CODE_ID = "042bec22-01b1-5ae7-9037-7ff0dda6842e"
+
+
+def inline_source(fetch=False):
+    source = (ROOT / "src/GiveawayList.cs").read_bytes() + b"\n" + (ROOT / "src/ChattersClient.cs").read_bytes()
+    return (b"#define GIVEAWAY_FETCH\n" if fetch else b"") + source
 
 
 def decode(encoded):
@@ -40,11 +47,17 @@ def assemble():
         raise ValueError("VERSION must be a semantic version")
     payload = json.loads((ROOT / "extension/template.json").read_text())
     payload["meta"]["version"] = version
-    source = (ROOT / "src/GiveawayList.cs").read_bytes()
+    seen = set()
     for action in payload["data"]["actions"]:
         for subaction in walk_subactions(action["subActions"]):
             if subaction["type"] == 99999:
-                subaction["byteCode"] = base64.b64encode(source).decode("ascii")
+                identity = subaction["id"]
+                if identity not in (FETCH_CODE_ID, SAVE_CODE_ID) or identity in seen:
+                    raise ValueError("Unknown or duplicate inline code binding: " + identity)
+                seen.add(identity)
+                subaction["byteCode"] = base64.b64encode(inline_source(identity == FETCH_CODE_ID)).decode("ascii")
+    if seen != {FETCH_CODE_ID, SAVE_CODE_ID}:
+        raise ValueError("Both fetch and save inline code bindings are required")
     return version, payload
 
 

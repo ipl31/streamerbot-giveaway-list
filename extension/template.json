@@ -2,8 +2,8 @@
   "meta": {
     "name": "Twitch Giveaway List",
     "author": "ipl31",
-    "version": "0.3.0",
-    "description": "Post present Twitch users in chat and save timestamped history files for a spin wheel.",
+    "version": "0.4.0",
+    "description": "Fetch all connected Twitch chatters directly, with timestamped files and conditional chat output.",
     "autoRunAction": null,
     "minimumVersion": null
   },
@@ -37,7 +37,7 @@
             "parentId": null,
             "weight": 0.0,
             "enabled": true,
-            "name": "Get all present Twitch users",
+            "name": "Get all connected Twitch users",
             "color": null,
             "random": false,
             "subActions": [
@@ -47,11 +47,15 @@
                 "enabled": true,
                 "id": "18d54dc8-79d7-53da-8462-f7f4f58a0ee1",
                 "index": 0,
-                "type": 22,
-                "present": true,
-                "count": "100000",
-                "includeFrom": false,
-                "groups": []
+                "type": 99999,
+                "name": "Get all users directly from Twitch",
+                "description": "Validate the broadcaster connection and retrieve every Get Chatters page. No presence cache or Live Update dependency.",
+                "references": [],
+                "byteCode": "",
+                "precompile": true,
+                "delayStart": false,
+                "saveResultToVariable": false,
+                "saveToVariable": ""
               }
             ]
           },
@@ -74,7 +78,7 @@
                 "index": 0,
                 "type": 99999,
                 "name": "Save timestamped giveaway file",
-                "description": "Save history one name per line; prepare plain chat usernames using persisted giveawayListChatDelimiter (space or comma). Separate native Twitch Send Message sub-actions post to chat.",
+                "description": "Save only a complete fetched roster; preserve one-name-per-line history and prepare space/comma chat output.",
                 "references": [],
                 "byteCode": "",
                 "precompile": true,
@@ -156,9 +160,7 @@
             ]
           }
         ],
-        "collapsedGroups": [
-          "91392b30-f47d-5704-a1be-bcb7b15577f2"
-        ]
+        "collapsedGroups": []
       }
     ],
     "queues": [],

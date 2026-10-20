@@ -1,20 +1,18 @@
-Plain usernames in chat, with a global setting for space or comma delimiters.
+Fetch the Twitch chat roster directly on every command, including silent accounts
+connected to chat. Streamer.bot Live Update and its presence cache are no longer
+used. The confusing Add Random Users sub-action is removed.
 
-- Default: `alice bob quiet_lurker`.
-- Set persisted **string** global `giveawayListChatDelimiter` to `comma` for
-  `alice,bob,quiet_lurker`; set it to `space` to switch back.
-- No `Giveaway users:` prefix, commands, bullets, or trailing separators.
-- Changes apply on the next command. A missing global is initialized to `space`
-  on the first run with users. Blank/invalid values fall back to spaces.
-- Timestamped text files remain one username per line in both modes, preserving
-  history. The chat delimiter does not change the file format.
-- The complete list, including delimiters, must fit Twitch's 500-character limit.
-  Oversized lists still post only the moderator file-check notice, with no filename.
+- Reads every Get Chatters page, deduplicates user IDs/logins, and sorts names.
+- Requires the connected broadcaster token with moderator:read:chatters. If access
+  fails, reconnect/reauthorize the broadcaster and inspect the safe log diagnostic.
+- No partial or stale export when authentication, a later page, or retries fail.
+- Preserves timestamped file history (one username per line), exclusions, space/
+  comma chat settings, and the visible native chat-post branches and length limit.
+- Adds collector unit coverage, real 1.0.4 API compilation checks for both code
+  variants including native namespace wrapping, and Windows .NET Framework 4.8.1
+  HTTP/JSON adapter checks against the bundled JSON assembly.
 
-Download the `.sb` and re-import over the existing action/command. Ensure the
-command is enabled. The visible native Twitch Send Message branches remain.
-Streamer.bot 1.0.4 or newer is supported; Live Update must be enabled for lurkers.
-
-Automated checks cover both delimiters, default/global initialization, invalid
-settings, plain output, unchanged file format, and 500/501-character routing.
-Native Streamer.bot import/live Twitch chat testing remains outstanding.
+Download the .sb asset, re-import over the existing action/command, and ensure the
+command is enabled. Requires Streamer.bot 1.0.4 or newer. Live Update is optional.
+Twitch membership updates may lag; anonymous video viewers cannot be listed.
+A real Streamer.bot GUI import and live Twitch smoke test remain outstanding.

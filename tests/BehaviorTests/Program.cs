@@ -10,6 +10,11 @@ public partial class CPHInline { public FakeCph CPH; }
 
 public class FakeCph
 {
+    private string token = "test-only-secret-token";
+    private string clientId = "test-client";
+    public int CredentialReads;
+    public string TwitchOAuthToken { get { CredentialReads++; return token; } set { token = value; } }
+    public string TwitchClientId { get { CredentialReads++; return clientId; } set { clientId = value; } }
     public readonly Dictionary<string, object> Arguments = new Dictionary<string, object>();
     public readonly Dictionary<string, object> Globals = new Dictionary<string, object>();
     public readonly List<string> Logs = new List<string>();
@@ -57,12 +62,18 @@ public static class Program
         cph.Arguments["userId"] = "123";
         cph.Arguments["broadcastUserId"] = "123";
         cph.Globals["giveawayListOutputPath"] = path;
+        cph.Arguments["giveawayListFetchSucceeded"] = true;
+        cph.Arguments["giveawayListFetchedLogins"] = new string[0];
         return cph;
     }
-    private static void User(FakeCph cph, int index, string name, string platform = "twitch")
+    private static void User(FakeCph cph, int index, string name)
     {
-        cph.Arguments["randomUserName" + index] = name;
-        if (platform != null) cph.Arguments["randomUserType" + index] = platform;
+        // Output tests unit-test the save phase with a complete framework-array
+        // handoff. CollectorTests exercise real parsing and HTTP pagination.
+        string[] names = (string[])cph.Arguments["giveawayListFetchedLogins"];
+        if (names.Length <= index) Array.Resize(ref names, index + 1);
+        names[index] = name;
+        cph.Arguments["giveawayListFetchedLogins"] = names;
     }
     private static bool Run(FakeCph cph)
     {
@@ -110,8 +121,8 @@ public static class Program
             File.WriteAllText(path, "legacy export");
             var cph = Setup(path);
             User(cph, 0, " Zebra "); User(cph, 1, "alpha"); User(cph, 2, "ALPHA");
-            User(cph, 3, " "); User(cph, 4, "other", "youtube");
-            User(cph, 5, "missing_platform", null); User(cph, 6, "bad\nextra");
+            User(cph, 3, " "); User(cph, 4, "");
+            User(cph, 5, null); User(cph, 6, "bad\nextra");
             User(cph, 7, "BotAccount"); User(cph, 8, "ordinary_lurker");
             cph.Globals["giveawayListExcludedLogins"] = " BOTACCOUNT, another_bot ";
             cph.BeforeSend = () => Check(Exports(directory).Length == 1, "file is saved before chat");
@@ -202,6 +213,7 @@ public static class Program
             Check(File.Exists(LatestExport(cph)), "saved history survives chat failure");
             Check(Directory.GetFiles(directory, "*.tmp").Length == 0, "temporary files cleaned up");
             Console.WriteLine("Passed " + checks + " behavior checks.");
+            CollectorTests.Run();
         }
         finally { Directory.Delete(directory, true); }
     }

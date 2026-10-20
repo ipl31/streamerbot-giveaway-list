@@ -9,5 +9,10 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../src/GiveawayList.cs" Link="GiveawayList.cs" />
+    <Compile Include="../../src/ChattersClient.cs" Link="ChattersClient.cs" />
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(MSBuildSDKsPath)/../Newtonsoft.Json.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
   </ItemGroup>
 </Project>

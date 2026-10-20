@@ -2,9 +2,9 @@
 STREAMER.BOT TWITCH GIVEAWAY LIST
 
 Install the .sb file from this repository's Releases page through Streamer.bot's
-Import dialog. Enable the imported !giveawaylist command. In Platforms > Twitch
-> Settings > Present Viewers, enable Live Update and choose a 1-minute interval.
-Wait for a refresh, then type !giveawaylist as the broadcaster or a moderator.
+Import dialog. Enable !giveawaylist and connect the Twitch broadcaster account.
+The connection must grant moderator:read:chatters. No Live Update setting is
+needed: each command fetches Twitch's current connected-chat roster directly.
 
 Each run saves a new timestamped giveaway-names-<UTC timestamp>-<unique id>.txt
 on the Desktop of the account running Streamer.bot, one login name per line.
@@ -13,16 +13,16 @@ or comma-separated when configured, if the message fits Twitch's 500-character
 limit. No heading, commands or extra text is added to the username list.
 Otherwise chat tells moderators to
 ask the streamer to check the text file; no filename or path is posted.
-The latest presence refresh includes lurkers connected to chat, not anonymous
-video viewers. Connected bot accounts and the broadcaster are included unless
-excluded in configuration. The collection sub-action is capped at 100000.
+The roster includes silent chat-connected accounts, not anonymous video viewers.
+Bots and the broadcaster are included unless excluded in configuration. Twitch's
+membership updates may lag. Every page must succeed before any file is written.
 
-The imported action has three labelled groups: Get all present Twitch users,
+The imported action has three labelled groups: Get all connected Twitch users,
 Save timestamped giveaway file, and Post users to chat. The collection group
-is collapsed; its built-in collector requests all available present users.
-For manual installation: create the command and Command Triggered action;
-add Twitch > User > Add Random Users (Count 100000, Present Only checked);
-then Execute C# Code containing this file, named Save timestamped giveaway file;
+contains the direct fetch code. Both C# sub-actions embed this file and the shared
+ChattersClient.cs helpers. The fetch variant prepends #define GIVEAWAY_FETCH;
+the save variant does not. They exchange only framework string[]/bool arguments.
+For manual installation, use the release import rather than a cached-user action;
 then an If/Else on %giveawayListFitsChat%, with a Twitch Send Message sub-action
 in each branch (the prepared message when true, the generic notice when false).
 The save step prepares a message; only the final post step sends it to Twitch.
@@ -50,40 +50,96 @@ using System.Globalization;
 
 public partial class CPHInline
 {
-    private const int MaximumUsers = 100000;
     private const int ChatCharacterLimit = 500;
     private const string ChatMessageArgument = "giveawayListChatMessage";
     private const string ExportSucceededArgument = "giveawayListExportSucceeded";
     private const string FitsChatArgument = "giveawayListFitsChat";
+    private const string FetchSucceededArgument = "giveawayListFetchSucceeded";
+    private const string FetchedLoginsArgument = "giveawayListFetchedLogins";
+    private const string FetchErrorArgument = "giveawayListFetchError";
+    private const string FetchErrorMessage = "Unable to retrieve the complete user list. Mods: please ask the streamer to check the Twitch connection and Streamer.bot log.";
 
     public bool Execute()
+    {
+#if GIVEAWAY_FETCH
+        return FetchChatters();
+#else
+        return SaveChatters();
+#endif
+    }
+
+    protected virtual GiveawayRuntime.ChattersClient CreateChattersClient()
+    {
+        return new GiveawayRuntime.ChattersClient(new GiveawayRuntime.FrameworkTransport(), new GiveawayRuntime.TickClock());
+    }
+
+    public bool FetchChatters()
     {
         CPH.SetArgument(ChatMessageArgument, "");
         CPH.SetArgument(ExportSucceededArgument, false);
         CPH.SetArgument(FitsChatArgument, false);
+        CPH.SetArgument(FetchSucceededArgument, false);
+        CPH.SetArgument(FetchedLoginsArgument, new string[0]);
+        CPH.SetArgument(FetchErrorArgument, "");
         if (!IsAuthorized())
         {
             CPH.LogWarn("Giveaway List: only a Twitch broadcaster or moderator can export.");
             return false;
         }
+        try
+        {
+            string broadcasterId;
+            CPH.TryGetArg("broadcastUserId", out broadcasterId);
+            // Credentials remain local. Never store them in action arguments.
+            GiveawayRuntime.FetchResult result = CreateChattersClient().Fetch(broadcasterId, CPH.TwitchOAuthToken, CPH.TwitchClientId);
+            CPH.SetArgument(FetchedLoginsArgument, result.Logins);
+            CPH.SetArgument(FetchSucceededArgument, true);
+            CPH.LogInfo("Giveaway List: fetched " + result.Logins.Length + " users across " + result.Pages + " Twitch roster pages.");
+            return true;
+        }
+        catch (GiveawayRuntime.FetchFailure failure)
+        {
+            CPH.LogWarn("Giveaway List: complete Twitch roster fetch failed. " + failure.Message);
+        }
+        catch (Exception)
+        {
+            // Do not expose credentials via unrestricted exception messages.
+            CPH.LogWarn("Giveaway List: unexpected Twitch collection failure; no partial list will be exported.");
+        }
+        CPH.SetArgument(FetchSucceededArgument, false);
+        CPH.SetArgument(FetchedLoginsArgument, new string[0]);
+        CPH.SetArgument(FetchErrorArgument, FetchErrorMessage);
+        return PrepareChat(FetchErrorMessage, false);
+    }
+
+    public bool SaveChatters()
+    {
+        if (!IsAuthorized()) return false;
+        bool complete;
+        string[] fetched;
+        if (!CPH.TryGetArg(FetchSucceededArgument, out complete) || !complete
+            || !CPH.TryGetArg(FetchedLoginsArgument, out fetched) || fetched == null)
+        {
+            string error;
+            if (!CPH.TryGetArg(FetchErrorArgument, out error) || string.IsNullOrWhiteSpace(error))
+                error = FetchErrorMessage;
+            return PrepareChat(error, false);
+        }
+        // Consume the handoff before file I/O so an accidental second save cannot
+        // reuse a successful roster from an earlier invocation.
+        CPH.SetArgument(FetchSucceededArgument, false);
+        CPH.SetArgument(FetchedLoginsArgument, new string[0]);
 
         string configuredExclusions = CPH.GetGlobalVar<string>("giveawayListExcludedLogins", true) ?? "";
         var excluded = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         foreach (string login in configuredExclusions.Split(','))
             if (!string.IsNullOrWhiteSpace(login)) excluded[login.Trim()] = true;
         var uniqueNames = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-        for (int i = 0; i < MaximumUsers; i++)
+        foreach (string fetchedLogin in fetched)
         {
-            string name, platform;
-            if (!CPH.TryGetArg("randomUserName" + i, out name))
-                break;
-            // Fail closed if platform information is missing.
-            if (!CPH.TryGetArg("randomUserType" + i, out platform)
-                || !string.Equals(platform, "twitch", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(fetchedLogin))
                 continue;
-            if (string.IsNullOrWhiteSpace(name))
-                continue;
-            name = name.Trim().ToLowerInvariant();
+            string name = fetchedLogin.Trim().ToLowerInvariant();
             if (IsLogin(name) && !excluded.ContainsKey(name))
                 uniqueNames[name] = true;
         }
@@ -95,7 +151,7 @@ public partial class CPHInline
         {
             CPH.LogWarn("Giveaway List: no eligible Twitch users found. "
                 + "Previous export left unchanged; do not use it for this giveaway.");
-            return PrepareChat("No eligible users found. Mods: please ask the streamer to check the chat presence settings.", false);
+            return PrepareChat("No eligible users found in Twitch's connected-chat list after exclusions.", false);
         }
 
         return SaveAndPrepareChat(names);
@@ -105,10 +161,9 @@ public partial class CPHInline
     {
         string source, userId, broadcasterId;
         bool isModerator;
-        bool broadcaster = CPH.TryGetArg("userId", out userId)
-            && CPH.TryGetArg("broadcastUserId", out broadcasterId)
-            && !string.IsNullOrWhiteSpace(userId)
-            && string.Equals(userId, broadcasterId, StringComparison.Ordinal);
+        if (!CPH.TryGetArg("userId", out userId) || !GiveawayRuntime.ChattersClient.IsId(userId)
+            || !CPH.TryGetArg("broadcastUserId", out broadcasterId) || !GiveawayRuntime.ChattersClient.IsId(broadcasterId)) return false;
+        bool broadcaster = string.Equals(userId, broadcasterId, StringComparison.Ordinal);
         bool moderator = CPH.TryGetArg("isModerator", out isModerator) && isModerator;
 
         return CPH.TryGetArg("commandSource", out source)
