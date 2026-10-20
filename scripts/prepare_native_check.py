@@ -13,7 +13,7 @@ def prepare():
     work = build.ROOT / '.framework-build'
     work.mkdir(exist_ok=True)
     for phase in ('fetch', 'save'):
-        source = build.inline_source(phase == 'fetch').decode('utf-8')
+        source = build.inline_source(phase == 'fetch').decode('utf-8').replace('\r\n', '\n')
         (work / (phase + '.cs')).write_text(source, encoding='utf-8')
         directives = re.findall(r'^#define [^\n]+$', source, re.MULTILINE)
         usings = re.findall(r'^using [^\n]+;$', source, re.MULTILINE)
