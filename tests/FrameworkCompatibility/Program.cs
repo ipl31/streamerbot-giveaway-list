@@ -48,6 +48,11 @@ public static class Program
         server.IsBackground = true; server.Start();
         HttpResult result = null;
         Exception failure = null;
+        // Synthetic loopback inputs only: expose swallowed runtime binding errors
+        // in the compatibility harness without adding diagnostics to production.
+        EventHandler<System.Runtime.ExceptionServices.FirstChanceExceptionEventArgs> diagnostics =
+            (sender, error) => Console.WriteLine("Fixture first-chance: " + error.Exception);
+        AppDomain.CurrentDomain.FirstChanceException += diagnostics;
         try
         {
             result = new FrameworkTransport().Send(new RequestSpec {
@@ -58,6 +63,7 @@ public static class Program
             }, timeout);
         }
         catch (Exception error) { failure = error; }
+        finally { AppDomain.CurrentDomain.FirstChanceException -= diagnostics; }
         if (!server.Join(5000)) { listener.Stop(); throw new Exception("Fixture did not finish"); }
         if (serverError != null) throw serverError;
         Check(received != null && received.Contains("Authorization: Bearer synthetic-only-token"), "real adapter attaches authorization header");
