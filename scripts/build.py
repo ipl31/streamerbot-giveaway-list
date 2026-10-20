@@ -45,7 +45,7 @@ def assemble():
     version = (ROOT / "VERSION").read_text().strip()
     if not re.fullmatch(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?", version):
         raise ValueError("VERSION must be a semantic version")
-    payload = json.loads((ROOT / "extension/template.json").read_text())
+    payload = json.loads((ROOT / "extension/template.json").read_text(encoding="utf-8"))
     payload["meta"]["version"] = version
     seen = set()
     for action in payload["data"]["actions"]:
@@ -65,9 +65,9 @@ def build(output):
     version, payload = assemble()
     output.mkdir(parents=True, exist_ok=True)
     artifact = output / ("streamerbot-giveaway-list-" + version + ".sb")
-    artifact.write_text(encode(payload) + "\n", encoding="ascii")
+    artifact.write_bytes((encode(payload) + "\n").encode("ascii"))
     digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
-    artifact.with_suffix(".sb.sha256").write_text(digest + "  " + artifact.name + "\n")
+    artifact.with_suffix(".sb.sha256").write_bytes((digest + "  " + artifact.name + "\n").encode("ascii"))
     print(artifact)
     return artifact
 

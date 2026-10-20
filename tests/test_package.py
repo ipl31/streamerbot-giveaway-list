@@ -56,6 +56,8 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(len(data["actions"]), 1)
         self.assertEqual(len(data["commands"]), 1)
         action, command = data["actions"][0], data["commands"][0]
+        self.assertEqual(command["name"], "Giveaway List — !giveawaylist")
+        self.assertEqual(action["name"], "Giveaway List — Export present Twitch users")
         self.assertEqual(command["command"], "!giveawaylist")
         self.assertFalse(command["enabled"])
         self.assertEqual(command["sources"], 1)

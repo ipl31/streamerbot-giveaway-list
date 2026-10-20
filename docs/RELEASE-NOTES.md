@@ -16,3 +16,6 @@ Download the .sb asset, re-import over the existing action/command, and ensure t
 command is enabled. Requires Streamer.bot 1.0.4 or newer. Live Update is optional.
 Twitch membership updates may lag; anonymous video viewers cannot be listed.
 A real Streamer.bot GUI import and live Twitch smoke test remain outstanding.
+
+Also fixes Windows package label encoding and makes artifact/checksum newlines
+explicit, so Windows and Linux builders produce identical files.

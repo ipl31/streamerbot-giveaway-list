@@ -109,7 +109,7 @@ The 10,000-page safety limit also fails rather than truncating the list.
 Edits to command permissions alone cannot grant ordinary viewers export access:
 the C# role check independently requires a broadcaster or moderator.
 
-When upgrading to v0.4.0, re-import and overwrite the existing action/command,
+When upgrading to v0.4.1, re-import and overwrite the existing action/command,
 then recheck that the command is enabled. An existing custom output path remains
 the base for new timestamped filenames; no configuration migration is required.
 
@@ -138,8 +138,8 @@ and runs HTTP/JSON adapter tests on .NET Framework 4.8.1. To publish a release, 
 the change, and push a matching tag:
 
 ```sh
-git tag v0.4.0
-git push origin main v0.4.0
+git tag v0.4.1
+git push origin main v0.4.1
 ```
 
 The release job runs only after both operating systems pass, validates the tag,
